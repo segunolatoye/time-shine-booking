@@ -30,15 +30,16 @@ const AdminAvailability = () => {
   const updateHour = async (dayOfWeek: number, field: string, value: any) => {
     const existing = hours.find((h) => h.day_of_week === dayOfWeek);
     if (existing) {
-      await supabase.from("working_hours").update({ [field]: value }).eq("id", existing.id);
+      await supabase.from("working_hours").update({ [field]: value } as any).eq("id", existing.id);
     } else {
-      await supabase.from("working_hours").insert({
+      const record: any = {
         day_of_week: dayOfWeek,
         start_time: "09:00",
         end_time: "18:00",
         is_off: false,
         [field]: value,
-      });
+      };
+      await supabase.from("working_hours").insert(record);
     }
     fetchData();
   };

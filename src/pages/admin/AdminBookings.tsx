@@ -29,7 +29,7 @@ const AdminBookings = () => {
       .order("start_time", { ascending: false });
 
     if (filter !== "all") {
-      query = query.eq("status", filter);
+      query = query.eq("status", filter as any);
     }
 
     const { data } = await query;

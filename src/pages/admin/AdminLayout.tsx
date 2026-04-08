@@ -1,8 +1,8 @@
 import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
-import { NavLink } from "@/components/NavLink";
 import {
   LayoutDashboard,
   Scissors,
@@ -50,7 +50,6 @@ const AdminLayout = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Sidebar */}
       <aside className="w-64 border-r border-border bg-card flex flex-col">
         <div className="p-6 border-b border-border">
           <h1 className="text-xl font-serif font-bold text-foreground">Luxe Admin</h1>
@@ -61,7 +60,7 @@ const AdminLayout = () => {
               key={item.to}
               to={item.to}
               end={item.end}
-              className={({ isActive }: { isActive: boolean }) =>
+              className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
                   isActive
                     ? "bg-primary text-primary-foreground"
@@ -80,8 +79,6 @@ const AdminLayout = () => {
           </Button>
         </div>
       </aside>
-
-      {/* Main */}
       <main className="flex-1 overflow-auto">
         <div className="p-8">
           <Outlet />
