@@ -102,7 +102,7 @@ const DateTimeSelect = () => {
       .eq("key", "buffer_time")
       .maybeSingle();
 
-    const bufferMinutes = bufferSetting?.value?.minutes || 0;
+    const bufferMinutes = (bufferSetting?.value as any)?.minutes || 0;
     const duration = state.serviceDuration || 60;
 
     // Generate slots
