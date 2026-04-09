@@ -1,8 +1,20 @@
 import React from "react";
-import { Navigate, Outlet } from "react-router-dom";
-import { NavLink } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
+import { NavLink } from "@/components/NavLink";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
   Scissors,
@@ -12,6 +24,7 @@ import {
   Settings,
   LogOut,
   Clock,
+  Menu,
 } from "lucide-react";
 
 const navItems = [
@@ -23,6 +36,59 @@ const navItems = [
   { to: "/admin/payments", icon: CreditCard, label: "Payments" },
   { to: "/admin/settings", icon: Settings, label: "Settings" },
 ];
+
+function AdminSidebar() {
+  const { signOut } = useAuth();
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+
+  return (
+    <Sidebar collapsible="icon" className="border-r border-border">
+      <div className="p-4 border-b border-border flex items-center gap-2">
+        <Scissors className="w-5 h-5 text-primary shrink-0" />
+        {!collapsed && (
+          <h1 className="text-lg font-serif font-bold text-foreground truncate">
+            Luxe Admin
+          </h1>
+        )}
+      </div>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navItems.map((item) => (
+                <SidebarMenuItem key={item.to}>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={item.to}
+                      end={item.end}
+                      className="hover:bg-secondary/50"
+                      activeClassName="bg-primary text-primary-foreground font-medium"
+                    >
+                      <item.icon className="w-4 h-4 shrink-0" />
+                      {!collapsed && <span>{item.label}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+      <div className="mt-auto p-3 border-t border-border">
+        <Button
+          variant="ghost"
+          size={collapsed ? "icon" : "default"}
+          className={collapsed ? "" : "w-full justify-start gap-2 text-muted-foreground"}
+          onClick={signOut}
+        >
+          <LogOut className="w-4 h-4 shrink-0" />
+          {!collapsed && <span>Sign Out</span>}
+        </Button>
+      </div>
+    </Sidebar>
+  );
+}
 
 const AdminLayout = () => {
   const { isAdmin, loading, signOut, user } = useAuth();
@@ -49,42 +115,22 @@ const AdminLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex">
-      <aside className="w-64 border-r border-border bg-card flex flex-col">
-        <div className="p-6 border-b border-border">
-          <h1 className="text-xl font-serif font-bold text-foreground">Luxe Admin</h1>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        <AdminSidebar />
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="h-12 flex items-center border-b border-border bg-card px-4 shrink-0">
+            <SidebarTrigger className="mr-3" />
+            <span className="text-sm font-medium text-muted-foreground">Admin Panel</span>
+          </header>
+          <main className="flex-1 overflow-auto">
+            <div className="p-4 md:p-6 lg:p-8">
+              <Outlet />
+            </div>
+          </main>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                }`
-              }
-            >
-              <item.icon className="w-4 h-4" />
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-border">
-          <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" onClick={signOut}>
-            <LogOut className="w-4 h-4" /> Sign Out
-          </Button>
-        </div>
-      </aside>
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">
-          <Outlet />
-        </div>
-      </main>
-    </div>
+      </div>
+    </SidebarProvider>
   );
 };
 
