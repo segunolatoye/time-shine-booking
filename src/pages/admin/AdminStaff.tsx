@@ -46,7 +46,6 @@ const AdminStaff = () => {
       if (!data) return;
       staffId = data.id;
     }
-    // Sync services
     await supabase.from("staff_services").delete().eq("staff_id", staffId);
     if (form.serviceIds.length > 0) {
       await supabase.from("staff_services").insert(
@@ -81,13 +80,17 @@ const AdminStaff = () => {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-serif font-semibold text-foreground">Staff</h1>
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl font-serif font-semibold text-foreground">Staff</h1>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ name: "", bio: "", active: true, serviceIds: [] }); } }}>
           <DialogTrigger asChild>
-            <Button className="rounded-full gap-2"><Plus className="w-4 h-4" /> Add Staff</Button>
+            <Button size="sm" className="rounded-full gap-1.5 md:gap-2 text-xs md:text-sm">
+              <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <span className="hidden sm:inline">Add Staff</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="font-serif">{editing ? "Edit Staff" : "Add Staff"}</DialogTitle>
             </DialogHeader>
@@ -97,7 +100,7 @@ const AdminStaff = () => {
               <div className="flex items-center gap-2"><Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} /><Label>Active</Label></div>
               <div>
                 <Label>Services</Label>
-                <div className="space-y-2 mt-2">
+                <div className="space-y-2 mt-2 max-h-40 overflow-y-auto">
                   {services.map((svc) => (
                     <div key={svc.id} className="flex items-center gap-2">
                       <Checkbox checked={form.serviceIds.includes(svc.id)} onCheckedChange={() => toggleService(svc.id)} />
@@ -112,27 +115,29 @@ const AdminStaff = () => {
         </Dialog>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2 md:space-y-3">
         {staffList.map((s) => (
           <Card key={s.id}>
-            <CardContent className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center">
-                  <User className="w-5 h-5 text-muted-foreground" />
+            <CardContent className="p-3 md:p-4 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5 md:gap-3 min-w-0">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-secondary flex items-center justify-center shrink-0">
+                  <User className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
                 </div>
-                <div>
-                  <h3 className="font-semibold">{s.name} {!s.active && <span className="text-xs text-muted-foreground">(inactive)</span>}</h3>
-                  <p className="text-sm text-muted-foreground">{s.serviceIds?.length || 0} services</p>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-sm md:text-base truncate">
+                    {s.name} {!s.active && <span className="text-xs text-muted-foreground">(inactive)</span>}
+                  </h3>
+                  <p className="text-xs md:text-sm text-muted-foreground">{s.serviceIds?.length || 0} services</p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="w-4 h-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => handleDelete(s.id)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
+              <div className="flex gap-1 shrink-0">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(s.id)}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
               </div>
             </CardContent>
           </Card>
         ))}
-        {staffList.length === 0 && <p className="text-muted-foreground">No staff yet.</p>}
+        {staffList.length === 0 && <p className="text-muted-foreground text-sm">No staff yet.</p>}
       </div>
     </div>
   );
