@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { format, parse } from "date-fns";
@@ -61,10 +61,10 @@ const AdminBookings = () => {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-serif font-semibold text-foreground">Bookings</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl font-serif font-semibold text-foreground">Bookings</h1>
         <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             {statusOptions.map((s) => (
@@ -77,33 +77,37 @@ const AdminBookings = () => {
       <div className="space-y-3">
         {bookings.map((b) => (
           <Card key={b.id}>
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold">{b.customer_name}</h3>
-                  <p className="text-sm text-muted-foreground">{b.customer_email} {b.customer_phone && `· ${b.customer_phone}`}</p>
-                  <p className="text-sm text-muted-foreground mt-1">
+            <CardContent className="p-3 md:p-4">
+              <div className="flex flex-col gap-3">
+                {/* Info */}
+                <div className="min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold text-sm md:text-base truncate">{b.customer_name}</h3>
+                    <Badge className={`${statusColor(b.status)} border-0 shrink-0 text-xs`}>
+                      {statusOptions.find((s) => s.value === b.status)?.label || b.status}
+                    </Badge>
+                  </div>
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">
+                    {b.customer_email} {b.customer_phone && `· ${b.customer_phone}`}
+                  </p>
+                  <p className="text-xs md:text-sm text-muted-foreground mt-1">
                     {b.services?.name} · {b.staff?.name || "Any"} · {format(parse(b.booking_date, "yyyy-MM-dd", new Date()), "MMM d, yyyy")} · {b.start_time?.substring(0, 5)}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Badge className={`${statusColor(b.status)} border-0`}>
-                    {statusOptions.find((s) => s.value === b.status)?.label || b.status}
-                  </Badge>
-                  <Select value={b.status} onValueChange={(v) => updateStatus(b.id, v)}>
-                    <SelectTrigger className="w-40 h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {statusOptions.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {/* Actions */}
+                <Select value={b.status} onValueChange={(v) => updateStatus(b.id, v)}>
+                  <SelectTrigger className="w-full sm:w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
         ))}
-        {bookings.length === 0 && <p className="text-muted-foreground">No bookings found.</p>}
+        {bookings.length === 0 && <p className="text-muted-foreground text-sm">No bookings found.</p>}
       </div>
     </div>
   );

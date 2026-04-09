@@ -46,18 +46,18 @@ const AdminDashboard = () => {
 
   return (
     <div>
-      <h1 className="text-2xl font-serif font-semibold text-foreground mb-6">Dashboard</h1>
+      <h1 className="text-xl md:text-2xl font-serif font-semibold text-foreground mb-4 md:mb-6">Dashboard</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
         {statCards.map((stat) => (
           <Card key={stat.label}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{stat.label}</p>
-                  <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+            <CardContent className="p-3 md:p-6">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm text-muted-foreground truncate">{stat.label}</p>
+                  <p className="text-lg md:text-2xl font-bold text-foreground">{stat.value}</p>
                 </div>
-                <stat.icon className={`w-8 h-8 ${stat.color}`} />
+                <stat.icon className={`w-6 h-6 md:w-8 md:h-8 ${stat.color} shrink-0`} />
               </div>
             </CardContent>
           </Card>
@@ -65,25 +65,25 @@ const AdminDashboard = () => {
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="font-serif">Today's Schedule</CardTitle>
+        <CardHeader className="px-4 md:px-6">
+          <CardTitle className="font-serif text-base md:text-lg">Today's Schedule</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 md:px-6">
           {todayBookingsList.length === 0 ? (
-            <p className="text-muted-foreground">No bookings today.</p>
+            <p className="text-muted-foreground text-sm">No bookings today.</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {todayBookingsList.map((b: any) => (
-                <div key={b.id} className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-                  <div>
-                    <p className="font-medium">{b.customer_name}</p>
-                    <p className="text-sm text-muted-foreground">
+                <div key={b.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 p-3 rounded-lg bg-secondary/50">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm md:text-base truncate">{b.customer_name}</p>
+                    <p className="text-xs md:text-sm text-muted-foreground truncate">
                       {b.services?.name} · {b.start_time?.substring(0, 5)} - {b.end_time?.substring(0, 5)}
                     </p>
                   </div>
-                  <div className="text-sm text-muted-foreground">
+                  <span className="text-xs md:text-sm text-muted-foreground shrink-0">
                     {b.staff?.name || "Any"}
-                  </div>
+                  </span>
                 </div>
               ))}
             </div>

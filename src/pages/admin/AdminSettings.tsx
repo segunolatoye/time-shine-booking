@@ -41,88 +41,102 @@ const AdminSettings = () => {
   };
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-serif font-semibold text-foreground">Settings</h1>
+    <div className="space-y-6 md:space-y-8">
+      <h1 className="text-xl md:text-2xl font-serif font-semibold text-foreground">Settings</h1>
 
       <Card>
-        <CardHeader><CardTitle className="font-serif">Salon Info</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
+        <CardHeader className="px-4 md:px-6">
+          <CardTitle className="font-serif text-base md:text-lg">Salon Info</CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 md:px-6 space-y-3">
           <div>
             <Label>Salon Name</Label>
             <Input value={salonName} onChange={(e) => setSalonName(e.target.value)} className="mt-1" />
           </div>
-          <Button className="rounded-full" onClick={() => saveSetting("salon_name", { name: salonName })}>Save</Button>
+          <Button className="rounded-full w-full sm:w-auto" onClick={() => saveSetting("salon_name", { name: salonName })}>Save</Button>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="font-serif">Cash App</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label>$Cashtag</Label>
-            <Input value={cashApp.cashtag} onChange={(e) => setCashApp({ ...cashApp, cashtag: e.target.value })} className="mt-1" placeholder="$YourCashTag" />
-          </div>
-          <div>
-            <Label>Note / Instructions</Label>
-            <Input value={cashApp.note} onChange={(e) => setCashApp({ ...cashApp, note: e.target.value })} className="mt-1" />
-          </div>
-          <Button className="rounded-full" onClick={() => saveSetting("cash_app_details", cashApp)}>Save</Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="font-serif">Zelle</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label>Email</Label>
-            <Input value={zelle.email} onChange={(e) => setZelle({ ...zelle, email: e.target.value })} className="mt-1" />
-          </div>
-          <div>
-            <Label>Phone</Label>
-            <Input value={zelle.phone} onChange={(e) => setZelle({ ...zelle, phone: e.target.value })} className="mt-1" />
-          </div>
-          <div>
-            <Label>Note / Instructions</Label>
-            <Input value={zelle.note} onChange={(e) => setZelle({ ...zelle, note: e.target.value })} className="mt-1" />
-          </div>
-          <Button className="rounded-full" onClick={() => saveSetting("zelle_details", zelle)}>Save</Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle className="font-serif">Deposit Rules</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label>Deposit Type</Label>
-            <Select value={deposit.type} onValueChange={(v) => setDeposit({ ...deposit, type: v })}>
-              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Full Payment</SelectItem>
-                <SelectItem value="percentage">Percentage</SelectItem>
-                <SelectItem value="fixed">Fixed Amount</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {deposit.type !== "none" && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="px-4 md:px-6">
+            <CardTitle className="font-serif text-base md:text-lg">Cash App</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 md:px-6 space-y-3">
             <div>
-              <Label>{deposit.type === "percentage" ? "Percentage (%)" : "Amount ($)"}</Label>
-              <Input type="number" value={deposit.value} onChange={(e) => setDeposit({ ...deposit, value: parseFloat(e.target.value) || 0 })} className="mt-1" />
+              <Label>$Cashtag</Label>
+              <Input value={cashApp.cashtag} onChange={(e) => setCashApp({ ...cashApp, cashtag: e.target.value })} className="mt-1" placeholder="$YourCashTag" />
             </div>
-          )}
-          <Button className="rounded-full" onClick={() => saveSetting("deposit_rules", deposit)}>Save</Button>
-        </CardContent>
-      </Card>
+            <div>
+              <Label>Note / Instructions</Label>
+              <Input value={cashApp.note} onChange={(e) => setCashApp({ ...cashApp, note: e.target.value })} className="mt-1" />
+            </div>
+            <Button className="rounded-full w-full sm:w-auto" onClick={() => saveSetting("cash_app_details", cashApp)}>Save</Button>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader><CardTitle className="font-serif">Buffer Time</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label>Minutes between bookings</Label>
-            <Input type="number" value={buffer.minutes} onChange={(e) => setBuffer({ minutes: parseInt(e.target.value) || 0 })} className="mt-1" />
-          </div>
-          <Button className="rounded-full" onClick={() => saveSetting("buffer_time", buffer)}>Save</Button>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader className="px-4 md:px-6">
+            <CardTitle className="font-serif text-base md:text-lg">Zelle</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 md:px-6 space-y-3">
+            <div>
+              <Label>Email</Label>
+              <Input value={zelle.email} onChange={(e) => setZelle({ ...zelle, email: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Phone</Label>
+              <Input value={zelle.phone} onChange={(e) => setZelle({ ...zelle, phone: e.target.value })} className="mt-1" />
+            </div>
+            <div>
+              <Label>Note / Instructions</Label>
+              <Input value={zelle.note} onChange={(e) => setZelle({ ...zelle, note: e.target.value })} className="mt-1" />
+            </div>
+            <Button className="rounded-full w-full sm:w-auto" onClick={() => saveSetting("zelle_details", zelle)}>Save</Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="px-4 md:px-6">
+            <CardTitle className="font-serif text-base md:text-lg">Deposit Rules</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 md:px-6 space-y-3">
+            <div>
+              <Label>Deposit Type</Label>
+              <Select value={deposit.type} onValueChange={(v) => setDeposit({ ...deposit, type: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Full Payment</SelectItem>
+                  <SelectItem value="percentage">Percentage</SelectItem>
+                  <SelectItem value="fixed">Fixed Amount</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {deposit.type !== "none" && (
+              <div>
+                <Label>{deposit.type === "percentage" ? "Percentage (%)" : "Amount ($)"}</Label>
+                <Input type="number" value={deposit.value} onChange={(e) => setDeposit({ ...deposit, value: parseFloat(e.target.value) || 0 })} className="mt-1" />
+              </div>
+            )}
+            <Button className="rounded-full w-full sm:w-auto" onClick={() => saveSetting("deposit_rules", deposit)}>Save</Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="px-4 md:px-6">
+            <CardTitle className="font-serif text-base md:text-lg">Buffer Time</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 md:px-6 space-y-3">
+            <div>
+              <Label>Minutes between bookings</Label>
+              <Input type="number" value={buffer.minutes} onChange={(e) => setBuffer({ minutes: parseInt(e.target.value) || 0 })} className="mt-1" />
+            </div>
+            <Button className="rounded-full w-full sm:w-auto" onClick={() => saveSetting("buffer_time", buffer)}>Save</Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
