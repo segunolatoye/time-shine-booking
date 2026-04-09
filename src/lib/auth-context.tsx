@@ -41,9 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          await checkAdmin(session.user.id);
+          await fetchRoles(session.user.id);
         } else {
-          setIsAdmin(false);
+          setRoles([]);
         }
         setLoading(false);
       }
