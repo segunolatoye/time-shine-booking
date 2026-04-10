@@ -6,6 +6,27 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { Globe } from "lucide-react";
+
+const COMMON_TIMEZONES = [
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Phoenix",
+  "America/Anchorage",
+  "Pacific/Honolulu",
+  "America/Toronto",
+  "America/Vancouver",
+  "Europe/London",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Asia/Tokyo",
+  "Asia/Shanghai",
+  "Asia/Dubai",
+  "Australia/Sydney",
+  "Pacific/Auckland",
+];
 
 const AdminSettings = () => {
   const [cashApp, setCashApp] = useState({ cashtag: "", note: "" });
@@ -13,6 +34,7 @@ const AdminSettings = () => {
   const [deposit, setDeposit] = useState({ type: "none", value: 0 });
   const [buffer, setBuffer] = useState({ minutes: 0 });
   const [salonName, setSalonName] = useState("Luxe Salon");
+  const [timezone, setTimezone] = useState("America/New_York");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -25,6 +47,7 @@ const AdminSettings = () => {
         if (s.key === "deposit_rules") setDeposit(v);
         if (s.key === "buffer_time") setBuffer(v);
         if (s.key === "salon_name") setSalonName(v.name || "Luxe Salon");
+        if (s.key === "timezone") setTimezone(v.timezone || "America/New_York");
       });
     };
     fetchSettings();
@@ -44,18 +67,45 @@ const AdminSettings = () => {
     <div className="space-y-6 md:space-y-8">
       <h1 className="text-xl md:text-2xl font-serif font-semibold text-foreground">Settings</h1>
 
-      <Card>
-        <CardHeader className="px-4 md:px-6">
-          <CardTitle className="font-serif text-base md:text-lg">Salon Info</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 md:px-6 space-y-3">
-          <div>
-            <Label>Salon Name</Label>
-            <Input value={salonName} onChange={(e) => setSalonName(e.target.value)} className="mt-1" />
-          </div>
-          <Button className="rounded-full w-full sm:w-auto" onClick={() => saveSetting("salon_name", { name: salonName })}>Save</Button>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="px-4 md:px-6">
+            <CardTitle className="font-serif text-base md:text-lg">Salon Info</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 md:px-6 space-y-3">
+            <div>
+              <Label>Salon Name</Label>
+              <Input value={salonName} onChange={(e) => setSalonName(e.target.value)} className="mt-1" />
+            </div>
+            <Button className="rounded-full w-full sm:w-auto" onClick={() => saveSetting("salon_name", { name: salonName })}>Save</Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="px-4 md:px-6">
+            <CardTitle className="font-serif text-base md:text-lg flex items-center gap-2">
+              <Globe className="w-4 h-4" /> Timezone
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 md:px-6 space-y-3">
+            <div>
+              <Label>Salon Timezone</Label>
+              <Select value={timezone} onValueChange={setTimezone}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {COMMON_TIMEZONES.map((tz) => (
+                    <SelectItem key={tz} value={tz}>{tz.replace(/_/g, " ")}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                All booking times will be displayed in this timezone.
+              </p>
+            </div>
+            <Button className="rounded-full w-full sm:w-auto" onClick={() => saveSetting("timezone", { timezone })}>Save</Button>
+          </CardContent>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
