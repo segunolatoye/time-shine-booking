@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +18,7 @@ const AdminStaff = () => {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ name: "", bio: "", active: true, serviceIds: [] as string[] });
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -36,21 +38,22 @@ const AdminStaff = () => {
   useEffect(() => { fetchData(); }, []);
 
   const handleSave = async () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) { toast({ title: "Name is required", variant: "destructive" }); return; }
     let staffId: string;
     if (editing) {
       staffId = editing.id;
-      await supabase.from("staff").update({ name: form.name, bio: form.bio, active: form.active }).eq("id", staffId);
+      const { error } = await supabase.from("staff").update({ name: form.name, bio: form.bio, active: form.active }).eq("id", staffId);
+      if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+      toast({ title: "Staff updated" });
     } else {
-      const { data } = await supabase.from("staff").insert({ name: form.name, bio: form.bio, active: form.active }).select("id").single();
-      if (!data) return;
+      const { data, error } = await supabase.from("staff").insert({ name: form.name, bio: form.bio, active: form.active }).select("id").single();
+      if (error || !data) { toast({ title: "Error", description: error?.message || "Failed to add staff", variant: "destructive" }); return; }
       staffId = data.id;
+      toast({ title: "Staff added" });
     }
     await supabase.from("staff_services").delete().eq("staff_id", staffId);
     if (form.serviceIds.length > 0) {
-      await supabase.from("staff_services").insert(
-        form.serviceIds.map((sid) => ({ staff_id: staffId, service_id: sid }))
-      );
+      await supabase.from("staff_services").insert(form.serviceIds.map((sid) => ({ staff_id: staffId, service_id: sid })));
     }
     setOpen(false);
     setEditing(null);
@@ -58,8 +61,12 @@ const AdminStaff = () => {
     fetchData();
   };
 
-  const handleDelete = async (id: string) => {
-    await supabase.from("staff").delete().eq("id", id);
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase.from("staff").delete().eq("id", deleteId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Staff deleted" });
+    setDeleteId(null);
     fetchData();
   };
 
@@ -72,9 +79,7 @@ const AdminStaff = () => {
   const toggleService = (serviceId: string) => {
     setForm((f) => ({
       ...f,
-      serviceIds: f.serviceIds.includes(serviceId)
-        ? f.serviceIds.filter((id) => id !== serviceId)
-        : [...f.serviceIds, serviceId],
+      serviceIds: f.serviceIds.includes(serviceId) ? f.serviceIds.filter((id) => id !== serviceId) : [...f.serviceIds, serviceId],
     }));
   };
 
@@ -132,13 +137,26 @@ const AdminStaff = () => {
               </div>
               <div className="flex gap-1 shrink-0">
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDelete(s.id)}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteId(s.id)}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
               </div>
             </CardContent>
           </Card>
         ))}
         {staffList.length === 0 && <p className="text-muted-foreground text-sm">No staff yet.</p>}
       </div>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Staff Member</AlertDialogTitle>
+            <AlertDialogDescription>Are you sure? This will permanently remove this staff member and their service assignments.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
