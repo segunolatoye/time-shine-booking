@@ -1,110 +1,105 @@
 
 
-# Salon Booking Web App — Implementation Plan
+## Plan: Admin Panel Fixes and Enhancements
 
-## Design System
-- **Theme**: Warm & luxurious — gold (#C5975B) and cream (#FFF8F0) palette, elegant serif headings (Playfair Display), clean sans-serif body (Inter)
-- **Accents**: Deep charcoal (#2D2A26) for text, soft rose (#F5E6E0) for backgrounds, gold gradients for CTAs
-- **Cards**: Soft shadows, rounded corners, subtle borders
+This plan covers 7 areas of work across the admin panel.
 
-## Backend (Lovable Cloud / Supabase)
-Set up tables with RLS:
-- **services** — name, duration, price, description, image, active
-- **staff** — name, bio, photo, active
-- **staff_services** — many-to-many linking staff ↔ services
-- **working_hours** — global + per-staff schedules (day_of_week, start_time, end_time)
-- **staff_breaks** — lunch/break times per staff
-- **closures** — full/partial day closures (date, start_time, end_time, reason)
-- **bookings** — service, staff, customer info (name, email, phone), date, start_time, end_time, status, access_token, hold_expires_at
-- **payments** — booking_id, method (cash_app/zelle), amount, status (pending/pending_verification/paid/failed/refunded), reference, proof_screenshot_url
-- **settings** — key/value store for admin config (payment details, business info, cancellation policy, buffer time, deposit rules)
-- **user_roles** — admin role management per security guidelines
+---
 
-## Customer Booking Flow (5 pages)
+### 1. Auto-Save Settings
 
-### 1. Landing / Service Selection Page
-- Hero section with salon branding
-- Service cards with name, duration, price, description
-- "Book Now" button per service
+**Current issue**: Each settings card has a manual "Save" button.
 
-### 2. Staff Selection Page
-- Grid of available staff for chosen service
-- "Any Available" option prominently shown
-- Staff cards with photo, name, brief bio
+**Change**: Replace manual save buttons with auto-save using debounced `useEffect` hooks. Each setting will save automatically ~800ms after the user stops typing/changing. A subtle "Saving..." / "Saved" indicator replaces the buttons.
 
-### 3. Date & Time Selection Page
-- Calendar date picker
-- Generated time slots based on: staff availability, working hours, existing bookings, breaks, closures, buffer time
-- Slots shown in salon's configured timezone
+**File**: `src/pages/admin/AdminSettings.tsx`
 
-### 4. Customer Details Form
-- Name, email, phone (no account required)
-- Summary sidebar showing selected service, staff, date/time, price
+---
 
-### 5. Payment Page
-- Choose: Cash App or Zelle
-- Display payment instructions (admin-configured $Cashtag / Zelle details)
-- Deposit amount shown (admin-configured % or fixed)
-- Upload proof / enter reference number
-- Submit → booking created with "pending_verification" status
-- 15-min hold on the time slot
+### 2. Email Configuration Section in Settings
 
-### 6. Booking Confirmation / Management Page
-- Accessed via unique token link (emailed)
-- View booking details
-- Cancel or reschedule options (within admin-configured policy)
+**Approach**: Add a new "Email Configuration" card section to AdminSettings that stores email config in the `settings` table (key: `email_config`). This will include:
 
-## Admin Panel (protected routes)
+- **Resend API Key input** (saved as a secret via the connector flow)
+- **From Name / From Email** fields
+- **Toggle switches** for email types: Booking Confirmation (to customer), Payment Received (to customer), New Booking Alert (to admin), Cancellation Notice (to admin)
+- **Email Template Editor**: A simple textarea-based editor per email type where admin can edit subject line and HTML body with placeholder tokens like `{{customer_name}}`, `{{service_name}}`, `{{booking_date}}`, `{{booking_time}}`
+- Templates stored in `settings` table as JSON (key: `email_templates`)
 
-### Admin Login
-- Supabase auth (email/password)
-- Role-based access via user_roles table
+**Files**: `src/pages/admin/AdminSettings.tsx` (add Email section), new `src/components/admin/EmailTemplateEditor.tsx`
 
-### Dashboard
-- Today's bookings overview
-- Pending payment verifications count
-- Quick stats (bookings this week, revenue)
+**Database**: No schema changes needed -- uses existing `settings` table.
 
-### Booking Calendar
-- Daily/weekly view of all bookings per staff
-- Color-coded by status
-- Click to view/edit booking, block time
+---
 
-### Service Management
-- CRUD for services (name, duration, price, staff assignment)
+### 3. Fix Closures/Holidays CRUD
 
-### Staff Management
-- CRUD for staff profiles
-- Per-staff working hours & breaks
-- Days off management
+**Current issues**: The closures section in AdminAvailability only adds and deletes. Missing edit functionality and potential RLS issues with unauthenticated operations.
 
-### Availability Settings
-- Global working hours
-- Closures/holidays management
-- Buffer time between bookings
+**Fix**:
+- Add an inline edit mode or edit dialog for closures (date, reason, start_time, end_time)
+- Add confirmation dialog before delete
+- Ensure proper error handling and toast feedback on all operations
 
-### Payment Management
-- List of pending verifications with proof/reference
-- Approve/reject payments
-- Configure Cash App & Zelle details
-- Set deposit rules (percentage or fixed amount)
+**File**: `src/pages/admin/AdminAvailability.tsx`
 
-### Booking Management
-- All bookings list with filters (status, date, staff)
-- Edit, cancel, reschedule bookings
-- Cancellation policy settings (free window, late fees)
+---
 
-## Key Logic
-- **Time slot generation**: Server-side function computing available slots from working hours, breaks, closures, existing bookings, and buffer time
-- **Booking hold**: 15-min reservation on slot selection; auto-released via DB check
-- **Double-booking prevention**: Check conflicts before confirming
-- **Timezone handling**: Store UTC, display in admin-configured timezone
-- **Secure booking links**: UUID tokens for customer access without login
+### 4. Fix Services CRUD
 
-## Email Notifications (Lovable Emails)
-- Booking confirmation with secure management link
-- Payment instructions for manual methods
-- Payment verified confirmation
-- Cancellation/reschedule confirmations
-- Reminders (configurable timing)
+**Current issues**: Add/edit/delete may fail silently without proper error feedback. Delete has no confirmation.
+
+**Fix**:
+- Add confirmation dialog before deleting a service
+- Add proper error handling with toast messages on insert, update, delete
+- Ensure dialog resets properly after save
+
+**File**: `src/pages/admin/AdminServices.tsx`
+
+---
+
+### 5. Fix Staff CRUD
+
+**Same pattern as Services**:
+- Add delete confirmation dialog
+- Better error handling with toasts on all operations
+- Ensure staff_services cleanup works correctly on delete (cascade should handle, but verify)
+
+**File**: `src/pages/admin/AdminStaff.tsx`
+
+---
+
+### 6. Booking Cancel & Reschedule
+
+**Current state**: Admin can change status via dropdown. Customer can cancel from confirmation page.
+
+**Enhancements**:
+- Add explicit **Cancel** button on each booking card in admin (with confirmation dialog)
+- Add **Reschedule** button that opens a dialog to pick a new date/time, updates the booking record
+- When cancelled/rescheduled, update the booking status accordingly
+
+**File**: `src/pages/admin/AdminBookings.tsx`
+
+---
+
+### 7. Payment Refund Option
+
+**Current state**: Admin can approve/reject payments with `pending_verification` status. The `payment_status` enum already includes `refunded`.
+
+**Enhancement**:
+- Add a **Refund** button on payments that are `paid_full` or `paid_partial`
+- Clicking opens a confirmation dialog with optional admin notes
+- Sets payment status to `refunded` and optionally updates booking status to `cancelled`
+
+**File**: `src/pages/admin/AdminPayments.tsx`
+
+---
+
+### Technical Details
+
+- **Auto-save**: Uses `useRef` for debounce timers, `useCallback` for the save function, and a small status indicator component
+- **Email templates**: Stored as JSON in `settings.value` with key `email_templates`. Each template has `subject`, `body` (HTML string), `enabled` (boolean). Placeholder tokens are documented in the UI
+- **No database migrations needed** -- all features use existing tables and enums (`refunded` status already exists in `payment_status`, `cancelled` in `booking_status`)
+- **Confirmation dialogs**: Use existing `AlertDialog` component from shadcn
+- **Files modified**: ~7 files total, no new routes needed
 
