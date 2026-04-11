@@ -402,6 +402,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_booking_by_token: { Args: { _token: string }; Returns: boolean }
       get_booking_by_token: {
         Args: { _token: string }
         Returns: {
