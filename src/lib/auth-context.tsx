@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
@@ -22,9 +22,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const initialized = useRef(false);
 
   const isAdmin = roles.includes("super_admin") || roles.includes("admin");
-
   const hasRole = (role: AppRole) => roles.includes(role) || roles.includes("super_admin");
 
   const fetchRoles = async (userId: string) => {
@@ -36,26 +36,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Set up auth listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchRoles(session.user.id);
+      async (_event, newSession) => {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
+        if (newSession?.user) {
+          // Use setTimeout to avoid Supabase deadlock
+          setTimeout(() => fetchRoles(newSession.user.id), 0);
         } else {
           setRoles([]);
         }
         setLoading(false);
+        initialized.current = true;
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchRoles(session.user.id);
+    // Then check for existing session
+    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+      // Only set if onAuthStateChange hasn't fired yet
+      if (!initialized.current) {
+        setSession(existingSession);
+        setUser(existingSession?.user ?? null);
+        if (existingSession?.user) {
+          fetchRoles(existingSession.user.id).then(() => setLoading(false));
+        } else {
+          setLoading(false);
+        }
+        initialized.current = true;
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
