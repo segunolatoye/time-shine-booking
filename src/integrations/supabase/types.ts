@@ -402,6 +402,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_booking_by_token: { Args: { _token: string }; Returns: boolean }
+      get_booking_by_token: {
+        Args: { _token: string }
+        Returns: {
+          booking_date: string
+          customer_email: string
+          customer_name: string
+          customer_phone: string
+          end_time: string
+          id: string
+          notes: string
+          service_duration: number
+          service_id: string
+          service_name: string
+          staff_id: string
+          staff_name: string
+          start_time: string
+          status: Database["public"]["Enums"]["booking_status"]
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
