@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,6 +10,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useToast } from "@/hooks/use-toast";
 import { format, parse } from "date-fns";
 import { XCircle, CalendarClock } from "lucide-react";
+import { DataTable, Column } from "@/components/admin/DataTable";
 
 const statusOptions = [
   { value: "pending_payment", label: "Pending Payment" },
@@ -21,8 +21,21 @@ const statusOptions = [
   { value: "no_show", label: "No Show" },
 ];
 
+const statusColor = (status: string) => {
+  const colors: Record<string, string> = {
+    pending_payment: "bg-yellow-100 text-yellow-800",
+    pending_verification: "bg-blue-100 text-blue-800",
+    confirmed: "bg-green-100 text-green-800",
+    completed: "bg-muted text-muted-foreground",
+    cancelled: "bg-red-100 text-red-800",
+    no_show: "bg-muted text-muted-foreground",
+  };
+  return colors[status] || "";
+};
+
 const AdminBookings = () => {
   const [bookings, setBookings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [rescheduleBooking, setRescheduleBooking] = useState<any>(null);
@@ -30,9 +43,10 @@ const AdminBookings = () => {
   const { toast } = useToast();
 
   const fetchBookings = async () => {
+    setLoading(true);
     let query = supabase
       .from("bookings")
-      .select("*, services(name, duration), staff(name), payments(*)")
+      .select("*, services(name, duration), staff(name)")
       .order("booking_date", { ascending: false })
       .order("start_time", { ascending: false });
 
@@ -41,6 +55,7 @@ const AdminBookings = () => {
     }
     const { data } = await query;
     setBookings(data || []);
+    setLoading(false);
   };
 
   useEffect(() => { fetchBookings(); }, [filter]);
@@ -59,11 +74,6 @@ const AdminBookings = () => {
     setCancelId(null);
   };
 
-  const openReschedule = (b: any) => {
-    setRescheduleBooking(b);
-    setRescheduleForm({ date: b.booking_date, time: b.start_time?.substring(0, 5) || "" });
-  };
-
   const confirmReschedule = async () => {
     if (!rescheduleBooking || !rescheduleForm.date || !rescheduleForm.time) {
       toast({ title: "Please select date and time", variant: "destructive" });
@@ -73,103 +83,125 @@ const AdminBookings = () => {
     const [h, m] = rescheduleForm.time.split(":").map(Number);
     const endMinutes = h * 60 + m + duration;
     const endTime = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
-
     const { error } = await supabase.from("bookings").update({
       booking_date: rescheduleForm.date,
       start_time: rescheduleForm.time,
       end_time: endTime,
       status: "confirmed" as any,
     }).eq("id", rescheduleBooking.id);
-
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     else { toast({ title: "Booking rescheduled" }); fetchBookings(); }
     setRescheduleBooking(null);
   };
 
-  const statusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      pending_payment: "bg-yellow-100 text-yellow-800",
-      pending_verification: "bg-blue-100 text-blue-800",
-      confirmed: "bg-green-100 text-green-800",
-      completed: "bg-muted text-muted-foreground",
-      cancelled: "bg-red-100 text-red-800",
-      no_show: "bg-muted text-muted-foreground",
-    };
-    return colors[status] || "";
-  };
-
   const canCancel = (status: string) => !["cancelled", "completed", "no_show"].includes(status);
   const canReschedule = (status: string) => !["cancelled", "completed", "no_show"].includes(status);
 
-  return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-6">
-        <h1 className="text-xl md:text-2xl font-serif font-semibold text-foreground">Bookings</h1>
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
+  const columns: Column<any>[] = [
+    {
+      key: "customer_name",
+      header: "Customer",
+      sortable: true,
+      render: (b) => (
+        <div className="min-w-0">
+          <p className="font-medium text-sm truncate">{b.customer_name}</p>
+          <p className="text-xs text-muted-foreground truncate">{b.customer_email}</p>
+        </div>
+      ),
+    },
+    {
+      key: "service",
+      header: "Service",
+      hideOnMobile: true,
+      render: (b) => <span className="text-sm">{b.services?.name || "—"}</span>,
+    },
+    {
+      key: "staff",
+      header: "Staff",
+      hideOnMobile: true,
+      render: (b) => <span className="text-sm">{b.staff?.name || "Any"}</span>,
+    },
+    {
+      key: "booking_date",
+      header: "Date & Time",
+      sortable: true,
+      render: (b) => (
+        <div className="text-sm">
+          <p>{format(parse(b.booking_date, "yyyy-MM-dd", new Date()), "MMM d, yyyy")}</p>
+          <p className="text-xs text-muted-foreground">{b.start_time?.substring(0, 5)}</p>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (b) => (
+        <Select value={b.status} onValueChange={(v) => updateStatus(b.id, v)}>
+          <SelectTrigger className="h-7 w-[140px] text-xs">
+            <Badge className={`${statusColor(b.status)} border-0 text-xs`}>
+              {statusOptions.find((s) => s.value === b.status)?.label || b.status}
+            </Badge>
+          </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
             {statusOptions.map((s) => (
               <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-      </div>
+      ),
+    },
+  ];
 
-      <div className="space-y-3">
-        {bookings.map((b) => (
-          <Card key={b.id}>
-            <CardContent className="p-3 md:p-4">
-              <div className="flex flex-col gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-sm md:text-base truncate">{b.customer_name}</h3>
-                    <Badge className={`${statusColor(b.status)} border-0 shrink-0 text-xs`}>
-                      {statusOptions.find((s) => s.value === b.status)?.label || b.status}
-                    </Badge>
-                  </div>
-                  <p className="text-xs md:text-sm text-muted-foreground truncate">
-                    {b.customer_email} {b.customer_phone && `· ${b.customer_phone}`}
-                  </p>
-                  <p className="text-xs md:text-sm text-muted-foreground mt-1">
-                    {b.services?.name} · {b.staff?.name || "Any"} · {format(parse(b.booking_date, "yyyy-MM-dd", new Date()), "MMM d, yyyy")} · {b.start_time?.substring(0, 5)}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Select value={b.status} onValueChange={(v) => updateStatus(b.id, v)}>
-                    <SelectTrigger className="w-full sm:w-44 h-8 text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {statusOptions.map((s) => (
-                        <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex gap-2">
-                    {canReschedule(b.status) && (
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8" onClick={() => openReschedule(b)}>
-                        <CalendarClock className="w-3.5 h-3.5" /> Reschedule
-                      </Button>
-                    )}
-                    {canCancel(b.status) && (
-                      <Button size="sm" variant="outline" className="gap-1.5 text-xs h-8 text-destructive" onClick={() => setCancelId(b.id)}>
-                        <XCircle className="w-3.5 h-3.5" /> Cancel
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {bookings.length === 0 && <p className="text-muted-foreground text-sm">No bookings found.</p>}
-      </div>
+  return (
+    <div>
+      <h1 className="text-xl md:text-2xl font-serif font-semibold text-foreground mb-4 md:mb-6">Bookings</h1>
 
-      {/* Cancel Confirmation */}
+      <DataTable
+        data={bookings}
+        columns={columns}
+        loading={loading}
+        searchPlaceholder="Search by name or email..."
+        searchFn={(b, q) =>
+          b.customer_name?.toLowerCase().includes(q) ||
+          b.customer_email?.toLowerCase().includes(q) ||
+          b.services?.name?.toLowerCase().includes(q)
+        }
+        filters={
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-full sm:w-44 h-9"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {statusOptions.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+        actions={(b) => (
+          <div className="flex gap-1">
+            {canReschedule(b.status) && (
+              <Button size="icon" variant="ghost" className="h-8 w-8" title="Reschedule" onClick={() => {
+                setRescheduleBooking(b);
+                setRescheduleForm({ date: b.booking_date, time: b.start_time?.substring(0, 5) || "" });
+              }}>
+                <CalendarClock className="w-4 h-4" />
+              </Button>
+            )}
+            {canCancel(b.status) && (
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" title="Cancel" onClick={() => setCancelId(b.id)}>
+                <XCircle className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        )}
+        emptyMessage="No bookings found."
+      />
+
       <AlertDialog open={!!cancelId} onOpenChange={(v) => !v && setCancelId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancel Booking</AlertDialogTitle>
-            <AlertDialogDescription>Are you sure you want to cancel this booking? The customer will need to rebook.</AlertDialogDescription>
+            <AlertDialogDescription>Are you sure? The customer will need to rebook.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Keep Booking</AlertDialogCancel>
@@ -178,7 +210,6 @@ const AdminBookings = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Reschedule Dialog */}
       <Dialog open={!!rescheduleBooking} onOpenChange={(v) => !v && setRescheduleBooking(null)}>
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>

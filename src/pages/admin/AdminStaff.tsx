@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
@@ -11,10 +11,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, User } from "lucide-react";
+import { DataTable, Column } from "@/components/admin/DataTable";
 
 const AdminStaff = () => {
   const [staffList, setStaffList] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState({ name: "", bio: "", active: true, serviceIds: [] as string[] });
@@ -22,6 +24,7 @@ const AdminStaff = () => {
   const { toast } = useToast();
 
   const fetchData = async () => {
+    setLoading(true);
     const [{ data: staff }, { data: svcs }, { data: staffSvcs }] = await Promise.all([
       supabase.from("staff").select("*").order("sort_order"),
       supabase.from("services").select("id, name"),
@@ -30,9 +33,14 @@ const AdminStaff = () => {
     const enriched = (staff || []).map((s: any) => ({
       ...s,
       serviceIds: (staffSvcs || []).filter((ss: any) => ss.staff_id === s.id).map((ss: any) => ss.service_id),
+      serviceNames: (staffSvcs || [])
+        .filter((ss: any) => ss.staff_id === s.id)
+        .map((ss: any) => (svcs || []).find((svc: any) => svc.id === ss.service_id)?.name)
+        .filter(Boolean),
     }));
     setStaffList(enriched);
     setServices(svcs || []);
+    setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -47,7 +55,7 @@ const AdminStaff = () => {
       toast({ title: "Staff updated" });
     } else {
       const { data, error } = await supabase.from("staff").insert({ name: form.name, bio: form.bio, active: form.active }).select("id").single();
-      if (error || !data) { toast({ title: "Error", description: error?.message || "Failed to add staff", variant: "destructive" }); return; }
+      if (error || !data) { toast({ title: "Error", description: error?.message || "Failed", variant: "destructive" }); return; }
       staffId = data.id;
       toast({ title: "Staff added" });
     }
@@ -83,13 +91,51 @@ const AdminStaff = () => {
     }));
   };
 
+  const columns: Column<any>[] = [
+    {
+      key: "name",
+      header: "Name",
+      sortable: true,
+      render: (s) => (
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center shrink-0">
+            <User className="w-4 h-4 text-muted-foreground" />
+          </div>
+          <div>
+            <span className="font-medium text-sm">{s.name}</span>
+            {!s.active && <Badge variant="secondary" className="ml-2 text-xs">Inactive</Badge>}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "services",
+      header: "Services",
+      hideOnMobile: true,
+      render: (s) => (
+        <span className="text-sm text-muted-foreground">
+          {s.serviceNames?.length ? s.serviceNames.join(", ") : "None"}
+        </span>
+      ),
+    },
+    {
+      key: "active",
+      header: "Status",
+      render: (s) => (
+        <Badge variant={s.active ? "default" : "secondary"} className="text-xs">
+          {s.active ? "Active" : "Inactive"}
+        </Badge>
+      ),
+    },
+  ];
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4 md:mb-6">
         <h1 className="text-xl md:text-2xl font-serif font-semibold text-foreground">Staff</h1>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) { setEditing(null); setForm({ name: "", bio: "", active: true, serviceIds: [] }); } }}>
           <DialogTrigger asChild>
-            <Button size="sm" className="rounded-full gap-1.5 md:gap-2 text-xs md:text-sm">
+            <Button size="sm" className="rounded-full gap-1.5 text-xs md:text-sm">
               <Plus className="w-3.5 h-3.5 md:w-4 md:h-4" />
               <span className="hidden sm:inline">Add Staff</span>
               <span className="sm:hidden">Add</span>
@@ -120,36 +166,26 @@ const AdminStaff = () => {
         </Dialog>
       </div>
 
-      <div className="space-y-2 md:space-y-3">
-        {staffList.map((s) => (
-          <Card key={s.id}>
-            <CardContent className="p-3 md:p-4 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 md:gap-3 min-w-0">
-                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-secondary flex items-center justify-center shrink-0">
-                  <User className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-sm md:text-base truncate">
-                    {s.name} {!s.active && <span className="text-xs text-muted-foreground">(inactive)</span>}
-                  </h3>
-                  <p className="text-xs md:text-sm text-muted-foreground">{s.serviceIds?.length || 0} services</p>
-                </div>
-              </div>
-              <div className="flex gap-1 shrink-0">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteId(s.id)}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {staffList.length === 0 && <p className="text-muted-foreground text-sm">No staff yet.</p>}
-      </div>
+      <DataTable
+        data={staffList}
+        columns={columns}
+        loading={loading}
+        searchPlaceholder="Search staff..."
+        searchFn={(s, q) => s.name?.toLowerCase().includes(q) || s.bio?.toLowerCase().includes(q)}
+        actions={(s) => (
+          <div className="flex gap-1">
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)}><Pencil className="w-3.5 h-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleteId(s.id)}><Trash2 className="w-3.5 h-3.5 text-destructive" /></Button>
+          </div>
+        )}
+        emptyMessage="No staff yet. Add one to get started."
+      />
 
       <AlertDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Staff Member</AlertDialogTitle>
-            <AlertDialogDescription>Are you sure? This will permanently remove this staff member and their service assignments.</AlertDialogDescription>
+            <AlertDialogDescription>Are you sure? This will permanently remove this staff member.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
