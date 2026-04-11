@@ -409,6 +409,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_booking_owner: {
+        Args: { booking_access_token: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "super_admin" | "stylist" | "billing"
