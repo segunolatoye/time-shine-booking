@@ -20,28 +20,22 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
 const BookingConfirmation = () => {
   const { token } = useParams();
   const [booking, setBooking] = useState<any>(null);
-  const [service, setService] = useState<any>(null);
-  const [staff, setStaff] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchBooking = async () => {
-      const { data } = await supabase
-        .from("bookings")
-        .select("*, services(*), staff(*)")
-        .eq("access_token", token)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("get_booking_by_token", {
+        _token: token,
+      });
 
-      if (!data) {
+      if (error || !data || data.length === 0) {
         setLoading(false);
         return;
       }
 
-      setBooking(data);
-      setService(data.services);
-      setStaff(data.staff);
+      setBooking(data[0]);
       setLoading(false);
     };
     fetchBooking();
@@ -49,10 +43,9 @@ const BookingConfirmation = () => {
 
   const handleCancel = async () => {
     if (!booking) return;
-    const { error } = await supabase
-      .from("bookings")
-      .update({ status: "cancelled" as any })
-      .eq("id", booking.id);
+    const { data, error } = await supabase.rpc("cancel_booking_by_token", {
+      _token: token,
+    });
 
     if (error) {
       toast({ title: "Error cancelling", description: error.message, variant: "destructive" });
@@ -131,17 +124,17 @@ const BookingConfirmation = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Service</p>
-                <p className="font-medium">{service?.name}</p>
+                <p className="font-medium">{booking.service_name}</p>
               </div>
             </div>
-            {staff && (
+            {booking.staff_name && (
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <User className="w-5 h-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Stylist</p>
-                  <p className="font-medium">{staff.name}</p>
+                  <p className="font-medium">{booking.staff_name}</p>
                 </div>
               </div>
             )}
