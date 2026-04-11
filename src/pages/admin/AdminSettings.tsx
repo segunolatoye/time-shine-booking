@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Globe, Check, Loader2, Mail } from "lucide-react";
@@ -32,12 +34,15 @@ const AdminSettings = () => {
   const [zelle, setZelle] = useState({ email: "", phone: "", note: "" });
   const [deposit, setDeposit] = useState({ type: "none", value: 0 });
   const [buffer, setBuffer] = useState({ minutes: 0 });
-  const [salonName, setSalonName] = useState("Luxe Salon");
+  const [salonName, setSalonName] = useState("Hair by Rhuqqui");
   const [timezone, setTimezone] = useState("America/New_York");
-  const [emailConfig, setEmailConfig] = useState({ from_name: "", from_email: "", admin_email: "" });
+  const [emailConfig, setEmailConfig] = useState({ from_name: "", from_email: "", admin_email: "", resend_api_key: "" });
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplates>(DEFAULT_TEMPLATES);
   const [saveStatuses, setSaveStatuses] = useState<Record<string, SaveStatus>>({});
   const [loaded, setLoaded] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState("booking_confirmation");
   const { toast } = useToast();
   const timers = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -50,9 +55,9 @@ const AdminSettings = () => {
         if (s.key === "zelle_details") setZelle(v);
         if (s.key === "deposit_rules") setDeposit(v);
         if (s.key === "buffer_time") setBuffer(v);
-        if (s.key === "salon_name") setSalonName(v.name || "Luxe Salon");
+        if (s.key === "salon_name") setSalonName(v.name || "Hair by Rhuqqui");
         if (s.key === "timezone") setTimezone(v.timezone || "America/New_York");
-        if (s.key === "email_config") setEmailConfig(v);
+        if (s.key === "email_config") setEmailConfig({ from_name: "", from_email: "", admin_email: "", resend_api_key: "", ...v });
         if (s.key === "email_templates") setEmailTemplates({ ...DEFAULT_TEMPLATES, ...v });
       });
       setLoaded(true);
@@ -86,6 +91,44 @@ const AdminSettings = () => {
   useEffect(() => { debouncedSave("buffer_time", buffer); }, [buffer]);
   useEffect(() => { debouncedSave("email_config", emailConfig); }, [emailConfig]);
   useEffect(() => { debouncedSave("email_templates", emailTemplates); }, [emailTemplates]);
+
+  const handleTestEmail = async () => {
+    if (!emailConfig.resend_api_key || !emailConfig.from_email || !emailConfig.admin_email) {
+      toast({ title: "Missing configuration", description: "Please fill in From Email, Admin Email, and API Key to test.", variant: "destructive" });
+      return;
+    }
+    setTestingEmail(true);
+    try {
+      const { error } = await supabase.functions.invoke("send-email", {
+        body: {
+          to: emailConfig.admin_email,
+          subject: "Test Email from " + salonName,
+          html: "<p>Your email configuration is working perfectly!</p>",
+          config: emailConfig
+        }
+      });
+      if (error) throw error;
+      toast({ title: "Test email sent!", description: "Check the admin inbox." });
+    } catch (error: any) {
+      toast({ title: "Failed to send test email", description: error.message || "Make sure you have deployed the 'send-email' edge function.", variant: "destructive" });
+    } finally {
+      setTestingEmail(false);
+    }
+  };
+
+  const getPreviewHtml = (templateKey: string) => {
+    const template = (emailTemplates as any)[templateKey];
+    if (!template) return "";
+    let html = template.body || "";
+    html = html.replace(/{{customer_name}}/g, "Jane Doe").replace(/{{service_name}}/g, "Signature Haircut").replace(/{{booking_date}}/g, "October 25, 2024").replace(/{{booking_time}}/g, "2:00 PM").replace(/{{salon_name}}/g, salonName || "Our Salon");
+    return html;
+  };
+
+  useEffect(() => {
+    return () => {
+      Object.values(timers.current).forEach(clearTimeout);
+    };
+  }, []);
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -219,13 +262,27 @@ const AdminSettings = () => {
         </CardHeader>
         <CardContent className="px-4 md:px-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div><Label>From Name</Label><Input value={emailConfig.from_name} onChange={(e) => setEmailConfig({ ...emailConfig, from_name: e.target.value })} className="mt-1" placeholder="Luxe Salon" /></div>
+            <div><Label>From Name</Label><Input value={emailConfig.from_name} onChange={(e) => setEmailConfig({ ...emailConfig, from_name: e.target.value })} className="mt-1" placeholder="Hair by Rhuqqui" /></div>
             <div><Label>From Email</Label><Input type="email" value={emailConfig.from_email} onChange={(e) => setEmailConfig({ ...emailConfig, from_email: e.target.value })} className="mt-1" placeholder="noreply@yoursalon.com" /></div>
           </div>
           <div>
             <Label>Admin Notification Email</Label>
             <Input type="email" value={emailConfig.admin_email} onChange={(e) => setEmailConfig({ ...emailConfig, admin_email: e.target.value })} className="mt-1" placeholder="admin@yoursalon.com" />
             <p className="text-xs text-muted-foreground mt-1">Receives new booking alerts and cancellation notices.</p>
+          </div>
+          <div>
+            <Label>Resend API Key</Label>
+            <Input type="password" value={emailConfig.resend_api_key || ""} onChange={(e) => setEmailConfig({ ...emailConfig, resend_api_key: e.target.value })} className="mt-1" placeholder="re_..." />
+            <p className="text-xs text-muted-foreground mt-1">Used to send emails via Resend. Get this from your Resend dashboard.</p>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" onClick={handleTestEmail} disabled={testingEmail}>
+              {testingEmail ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Mail className="w-4 h-4 mr-2" />}
+              Test Email Config
+            </Button>
+            <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+              Preview Templates
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -242,6 +299,37 @@ const AdminSettings = () => {
           <EmailTemplateEditor templates={emailTemplates} onChange={setEmailTemplates} />
         </CardContent>
       </Card>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Template Preview</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+            <div>
+              <Label>Select Template to Preview</Label>
+              <Select value={previewTemplate} onValueChange={setPreviewTemplate}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="booking_confirmation">Booking Confirmed</SelectItem>
+                  <SelectItem value="payment_received">Payment Received (Customer)</SelectItem>
+                  <SelectItem value="payment_admin">Payment Received (Admin)</SelectItem>
+                  <SelectItem value="new_booking_admin">New Booking Alert</SelectItem>
+                  <SelectItem value="cancellation_notice">Cancellation Notice</SelectItem>
+                  <SelectItem value="cancellation_customer">Cancellation Notice (Customer)</SelectItem>
+                  <SelectItem value="reschedule_customer">Booking Rescheduled (Customer)</SelectItem>
+                  <SelectItem value="reschedule_admin">Booking Rescheduled (Admin)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1 overflow-auto border border-border rounded-md p-4 bg-white text-black dark:bg-white">
+              <div dangerouslySetInnerHTML={{ __html: getPreviewHtml(previewTemplate) }} />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

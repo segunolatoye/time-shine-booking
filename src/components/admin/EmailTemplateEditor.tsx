@@ -3,154 +3,151 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Mail } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export interface EmailTemplate {
-  enabled: boolean;
   subject: string;
   body: string;
+  enabled: boolean;
 }
 
 export interface EmailTemplates {
   booking_confirmation: EmailTemplate;
   payment_received: EmailTemplate;
+  payment_admin: EmailTemplate;
   new_booking_admin: EmailTemplate;
   cancellation_notice: EmailTemplate;
+  cancellation_customer: EmailTemplate;
+  reschedule_customer: EmailTemplate;
+  reschedule_admin: EmailTemplate;
 }
 
-const DEFAULT_TEMPLATES: EmailTemplates = {
+export const DEFAULT_TEMPLATES: EmailTemplates = {
   booking_confirmation: {
+    subject: "Booking Confirmed: {{service_name}}",
+    body: "<p>Hi {{customer_name}},</p>\n<p>Your booking for <strong>{{service_name}}</strong> on <strong>{{booking_date}}</strong> at <strong>{{booking_time}}</strong> is confirmed.</p>\n<p>Thank you,<br/>{{salon_name}}</p>",
     enabled: true,
-    subject: "Your booking is confirmed - {{salon_name}}",
-    body: `<h2>Hi {{customer_name}},</h2>
-<p>Your booking has been confirmed!</p>
-<p><strong>Service:</strong> {{service_name}}</p>
-<p><strong>Date:</strong> {{booking_date}}</p>
-<p><strong>Time:</strong> {{booking_time}}</p>
-<p>Thank you for choosing {{salon_name}}!</p>`,
   },
   payment_received: {
+    subject: "Payment Received",
+    body: "<p>Hi {{customer_name}},</p>\n<p>We have successfully received your payment for your upcoming appointment on {{booking_date}}.</p>\n<p>Thank you,<br/>{{salon_name}}</p>",
     enabled: true,
-    subject: "Payment received - {{salon_name}}",
-    body: `<h2>Hi {{customer_name}},</h2>
-<p>We've received your payment of {{amount}}.</p>
-<p><strong>Service:</strong> {{service_name}}</p>
-<p><strong>Date:</strong> {{booking_date}}</p>
-<p>Thank you!</p>`,
+  },
+  payment_admin: {
+    subject: "Payment Received: {{customer_name}}",
+    body: "<p>{{customer_name}} just submitted a payment of {{amount}} for {{service_name}}.</p>",
+    enabled: true,
   },
   new_booking_admin: {
+    subject: "New Booking: {{customer_name}}",
+    body: "<p>You have a new booking.</p>\n<p><strong>Customer:</strong> {{customer_name}}<br/><strong>Service:</strong> {{service_name}}<br/><strong>Date:</strong> {{booking_date}}<br/><strong>Time:</strong> {{booking_time}}</p>",
     enabled: true,
-    subject: "New booking: {{customer_name}} - {{service_name}}",
-    body: `<h2>New Booking Alert</h2>
-<p><strong>Customer:</strong> {{customer_name}} ({{customer_email}})</p>
-<p><strong>Service:</strong> {{service_name}}</p>
-<p><strong>Date:</strong> {{booking_date}} at {{booking_time}}</p>`,
   },
   cancellation_notice: {
+    subject: "Booking Cancelled: {{customer_name}}",
+    body: "<p>The following booking has been cancelled.</p>\n<p><strong>Customer:</strong> {{customer_name}}<br/><strong>Service:</strong> {{service_name}}<br/><strong>Date:</strong> {{booking_date}}<br/><strong>Time:</strong> {{booking_time}}</p>",
     enabled: true,
-    subject: "Booking cancelled - {{customer_name}}",
-    body: `<h2>Booking Cancelled</h2>
-<p><strong>Customer:</strong> {{customer_name}}</p>
-<p><strong>Service:</strong> {{service_name}}</p>
-<p><strong>Date:</strong> {{booking_date}} at {{booking_time}}</p>`,
+  },
+  cancellation_customer: {
+    subject: "Booking Cancelled - {{salon_name}}",
+    body: "<p>Hi {{customer_name}},</p>\n<p>Your booking for <strong>{{service_name}}</strong> on <strong>{{booking_date}}</strong> at <strong>{{booking_time}}</strong> has been cancelled.</p>\n<p>If you have any questions or would like to rebook, please contact us.</p>\n<p>Thank you,<br/>{{salon_name}}</p>",
+    enabled: true,
+  },
+  reschedule_customer: {
+    subject: "Booking Rescheduled - {{salon_name}}",
+    body: "<p>Hi {{customer_name}},</p>\n<p>Your booking for <strong>{{service_name}}</strong> has been rescheduled to <strong>{{booking_date}}</strong> at <strong>{{booking_time}}</strong>.</p>\n<p>Thank you,<br/>{{salon_name}}</p>",
+    enabled: true,
+  },
+  reschedule_admin: {
+    subject: "Booking Rescheduled: {{customer_name}}",
+    body: "<p>A booking has been rescheduled.</p>\n<p><strong>Customer:</strong> {{customer_name}}<br/><strong>Service:</strong> {{service_name}}<br/><strong>New Date:</strong> {{booking_date}}<br/><strong>New Time:</strong> {{booking_time}}</p>",
+    enabled: true,
   },
 };
 
-const TEMPLATE_INFO: Record<keyof EmailTemplates, { label: string; recipient: string }> = {
-  booking_confirmation: { label: "Booking Confirmation", recipient: "Customer" },
-  payment_received: { label: "Payment Received", recipient: "Customer" },
-  new_booking_admin: { label: "New Booking Alert", recipient: "Admin" },
-  cancellation_notice: { label: "Cancellation Notice", recipient: "Admin" },
-};
-
-const PLACEHOLDERS = [
-  "{{customer_name}}", "{{customer_email}}", "{{service_name}}",
-  "{{booking_date}}", "{{booking_time}}", "{{amount}}", "{{salon_name}}",
-];
-
-interface Props {
+interface EmailTemplateEditorProps {
   templates: EmailTemplates;
   onChange: (templates: EmailTemplates) => void;
 }
 
-const EmailTemplateEditor: React.FC<Props> = ({ templates, onChange }) => {
-  const [openKey, setOpenKey] = useState<string | null>(null);
+const templateOptions: { value: keyof EmailTemplates; label: string }[] = [
+  { value: "booking_confirmation", label: "Booking Confirmed (Customer)" },
+  { value: "payment_received", label: "Payment Received (Customer)" },
+  { value: "payment_admin", label: "Payment Received (Admin)" },
+  { value: "new_booking_admin", label: "New Booking Alert (Admin)" },
+  { value: "cancellation_notice", label: "Cancellation Notice (Admin)" },
+  { value: "cancellation_customer", label: "Cancellation Notice (Customer)" },
+  { value: "reschedule_customer", label: "Booking Rescheduled (Customer)" },
+  { value: "reschedule_admin", label: "Booking Rescheduled (Admin)" },
+];
 
-  const updateTemplate = (key: keyof EmailTemplates, field: keyof EmailTemplate, value: any) => {
+const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({ templates, onChange }) => {
+  const [activeKey, setActiveKey] = useState<keyof EmailTemplates>("booking_confirmation");
+
+  const activeTemplate = templates[activeKey] || DEFAULT_TEMPLATES[activeKey];
+
+  const handleChange = (field: keyof EmailTemplate, value: string | boolean) => {
     onChange({
       ...templates,
-      [key]: { ...templates[key], [field]: value },
+      [activeKey]: {
+        ...activeTemplate,
+        [field]: value,
+      },
     });
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-1.5 mb-2">
-        <span className="text-xs text-muted-foreground">Available placeholders:</span>
-        {PLACEHOLDERS.map((p) => (
-          <Badge key={p} variant="secondary" className="text-xs font-mono">{p}</Badge>
-        ))}
+    <div className="space-y-6">
+      <div>
+        <Label>Select Template</Label>
+        <Select value={activeKey} onValueChange={(v: keyof EmailTemplates) => setActiveKey(v)}>
+          <SelectTrigger className="mt-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {templateOptions.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {(Object.keys(TEMPLATE_INFO) as (keyof EmailTemplates)[]).map((key) => {
-        const info = TEMPLATE_INFO[key];
-        const tmpl = templates[key] || DEFAULT_TEMPLATES[key];
-        const isOpen = openKey === key;
+      <div className="space-y-4 p-4 border border-border rounded-lg bg-secondary/20">
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium text-sm">Edit Template</h3>
+          <div className="flex items-center gap-2">
+            <Switch checked={activeTemplate.enabled} onCheckedChange={(v) => handleChange("enabled", v)} />
+            <Label className="text-sm">Enabled</Label>
+          </div>
+        </div>
 
-        return (
-          <Collapsible key={key} open={isOpen} onOpenChange={(v) => setOpenKey(v ? key : null)}>
-            <Card>
-              <CollapsibleTrigger asChild>
-                <CardHeader className="px-4 py-3 cursor-pointer hover:bg-secondary/30 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Mail className="w-4 h-4 text-muted-foreground" />
-                      <CardTitle className="text-sm font-medium">{info.label}</CardTitle>
-                      <Badge variant="outline" className="text-xs">{info.recipient}</Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={tmpl.enabled}
-                        onCheckedChange={(v) => updateTemplate(key, "enabled", v)}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                      <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-                    </div>
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="px-4 pb-4 space-y-3">
-                  <div>
-                    <Label className="text-xs">Subject Line</Label>
-                    <Input
-                      value={tmpl.subject}
-                      onChange={(e) => updateTemplate(key, "subject", e.target.value)}
-                      className="mt-1 text-sm"
-                      placeholder="Email subject..."
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">HTML Body</Label>
-                    <Textarea
-                      value={tmpl.body}
-                      onChange={(e) => updateTemplate(key, "body", e.target.value)}
-                      className="mt-1 text-sm font-mono min-h-[150px]"
-                      placeholder="<h2>Hello {{customer_name}}</h2>..."
-                    />
-                  </div>
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        );
-      })}
+        <div className="space-y-3">
+          <div>
+            <Label>Subject Line</Label>
+            <Input value={activeTemplate.subject} onChange={(e) => handleChange("subject", e.target.value)} className="mt-1" />
+          </div>
+          
+          <div>
+            <Label>Email Body (HTML)</Label>
+            <Textarea value={activeTemplate.body} onChange={(e) => handleChange("body", e.target.value)} className="mt-1 min-h-[200px] font-mono text-xs" />
+          </div>
+        </div>
+
+        <div className="bg-background p-3 rounded border border-border text-xs text-muted-foreground space-y-1">
+          <p className="font-medium text-foreground mb-2">Available Placeholders:</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <code>{`{{customer_name}}`}</code>
+            <code>{`{{service_name}}`}</code>
+            <code>{`{{booking_date}}`}</code>
+            <code>{`{{booking_time}}`}</code>
+            <code>{`{{salon_name}}`}</code>
+            <code>{`{{amount}}`}</code>
+          </div>
+          <p className="pt-2 italic">Placeholders will be replaced with real data when the email is sent.</p>
+        </div>
+      </div>
     </div>
   );
 };
 
-export { DEFAULT_TEMPLATES };
 export default EmailTemplateEditor;

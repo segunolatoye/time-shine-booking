@@ -17,19 +17,27 @@ interface Service {
 const Index = () => {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [salonName, setSalonName] = useState("Hair by Rhuqqui");
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchServices = async () => {
-      const { data } = await supabase
-        .from("services")
-        .select("*")
-        .eq("active", true)
-        .order("sort_order");
-      setServices(data || []);
+    const fetchData = async () => {
+      const [servicesRes, settingsRes] = await Promise.all([
+        supabase
+          .from("services")
+          .select("*")
+          .eq("active", true)
+          .order("sort_order"),
+        supabase.from("settings").select("value").eq("key", "salon_name").maybeSingle(),
+      ]);
+
+      setServices(servicesRes.data || []);
+      if (settingsRes.data?.value?.name) {
+        setSalonName(settingsRes.data.value.name);
+      }
       setLoading(false);
     };
-    fetchServices();
+    fetchData();
   }, []);
 
   return (
@@ -40,7 +48,7 @@ const Index = () => {
           <div className="flex items-center gap-3">
             <Scissors className="w-6 h-6 text-primary" />
             <h1 className="text-2xl font-serif font-bold text-foreground tracking-tight">
-              Luxe Salon
+              {salonName}
             </h1>
           </div>
           <p className="text-sm text-muted-foreground hidden sm:block">
@@ -130,7 +138,7 @@ const Index = () => {
       </main>
 
       <footer className="border-t border-border/50 py-6 text-center text-xs text-muted-foreground">
-        &copy; {new Date().getFullYear()} Luxe Salon
+        &copy; {new Date().getFullYear()} {salonName}
       </footer>
     </div>
   );

@@ -48,7 +48,7 @@ function AdminSidebar() {
         <Scissors className="w-5 h-5 text-primary shrink-0" />
         {!collapsed && (
           <h1 className="text-lg font-serif font-bold text-foreground truncate">
-            Luxe Admin
+            Hair by Rhuqqui
           </h1>
         )}
       </div>

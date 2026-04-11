@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, User, CheckCircle, AlertCircle, XCircle } from "lucide-react";
+import { Calendar, Clock, User, CheckCircle, AlertCircle, XCircle, CreditCard } from "lucide-react";
 import { format, parse } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,6 +20,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
 const BookingConfirmation = () => {
   const { token } = useParams();
   const [booking, setBooking] = useState<any>(null);
+  const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -36,6 +37,18 @@ const BookingConfirmation = () => {
       }
 
       setBooking(data[0]);
+      
+      // Fetch associated payments to calculate remaining balance
+      const { data: payments } = await supabase
+        .from("payments")
+        .select("amount, service_total")
+        .eq("booking_id", data[0].id);
+      if (payments && payments.length > 0) {
+        const totalService = Number(payments[0].service_total || 0);
+        const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        setBalance(Math.max(0, totalService - totalPaid));
+      }
+
       setLoading(false);
     };
     fetchBooking();
@@ -136,6 +149,21 @@ const BookingConfirmation = () => {
                   <p className="text-sm text-muted-foreground">Stylist</p>
                   <p className="font-medium">{booking.staff_name}</p>
                 </div>
+              </div>
+            )}
+
+            {balance > 0 && !["cancelled", "completed", "no_show"].includes(booking.status) && (
+              <div className="flex items-center justify-between pt-4 border-t mt-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Remaining Balance</p>
+                  <p className="font-bold text-lg">${balance.toFixed(2)}</p>
+                </div>
+                <Button
+                  onClick={() => navigate(`/book/pay-balance/${token}`)}
+                  className="rounded-full gap-2"
+                >
+                  <CreditCard className="w-4 h-4" /> Pay Balance
+                </Button>
               </div>
             )}
 

@@ -12,6 +12,7 @@ const Payment = () => {
   const [paymentMethod, setPaymentMethod] = useState<"cash_app" | "zelle" | null>(null);
   const [reference, setReference] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
+  const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("deposit");
   const [submitting, setSubmitting] = useState(false);
   const [settings, setSettings] = useState<any>({});
   const navigate = useNavigate();
@@ -80,22 +81,25 @@ const Payment = () => {
       }
 
       // Create payment
-      const depositRules = settings.deposit_rules;
-      let amount = state.servicePrice;
-      if (depositRules?.type === "percentage") {
-        amount = (state.servicePrice * (depositRules.value || 100)) / 100;
-      } else if (depositRules?.type === "fixed") {
-        amount = Math.min(depositRules.value || state.servicePrice, state.servicePrice);
+      let depositAmount = state.servicePrice;
+      if (settings.deposit_rules?.type === "percentage") {
+        depositAmount = (state.servicePrice * (settings.deposit_rules.value || 100)) / 100;
+      } else if (settings.deposit_rules?.type === "fixed") {
+        depositAmount = Math.min(settings.deposit_rules.value || state.servicePrice, state.servicePrice);
       }
+      const hasDeposit = settings.deposit_rules?.type && settings.deposit_rules.type !== "none" && depositAmount > 0 && depositAmount < state.servicePrice;
+      const amountToPay = (hasDeposit && paymentOption === "deposit") ? depositAmount : state.servicePrice;
 
       await supabase.from("payments").insert({
         booking_id: bookingId,
         method: paymentMethod as any,
-        amount,
+        amount: amountToPay,
         status: "pending_verification" as any,
         reference: reference || null,
         proof_screenshot_url: proofUrl,
-      });
+        service_total: state.servicePrice,
+        balance_remaining: state.servicePrice - amountToPay,
+      } as any);
 
       // Get access token
       const { data: booking } = await supabase
@@ -114,6 +118,14 @@ const Payment = () => {
 
   const cashAppDetails = settings.cash_app_details;
   const zelleDetails = settings.zelle_details;
+  
+  let depositAmount = state?.servicePrice || 0;
+  if (settings.deposit_rules?.type === "percentage") {
+    depositAmount = (state.servicePrice * (settings.deposit_rules.value || 100)) / 100;
+  } else if (settings.deposit_rules?.type === "fixed") {
+    depositAmount = Math.min(settings.deposit_rules.value || state.servicePrice, state.servicePrice);
+  }
+  const hasDeposit = settings.deposit_rules?.type && settings.deposit_rules.type !== "none" && depositAmount > 0 && depositAmount < state.servicePrice;
 
   return (
     <div className="min-h-screen bg-background">
@@ -129,8 +141,37 @@ const Payment = () => {
           Payment
         </h1>
         <p className="text-muted-foreground mb-8">
-          Total: <span className="font-semibold text-foreground">${state?.servicePrice?.toFixed(2)}</span>
+          Total Service Price: <span className="font-semibold text-foreground">${state?.servicePrice?.toFixed(2)}</span>
         </p>
+
+        {/* Deposit or Full Payment Selection */}
+        {hasDeposit && (
+          <div className="mb-8 space-y-3">
+            <Label className="text-base font-serif">Payment Option</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Card
+                className={`cursor-pointer transition-all ${paymentOption === "deposit" ? "border-primary ring-2 ring-primary/20" : "border-border/50 hover:border-primary/50"}`}
+                onClick={() => setPaymentOption("deposit")}
+              >
+                <CardContent className="p-4 text-center">
+                  <h3 className="font-semibold text-lg">Pay Deposit</h3>
+                  <div className="text-2xl font-bold text-primary mt-1">${depositAmount.toFixed(2)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">Balance of ${(state.servicePrice - depositAmount).toFixed(2)} due later</p>
+                </CardContent>
+              </Card>
+              <Card
+                className={`cursor-pointer transition-all ${paymentOption === "full" ? "border-primary ring-2 ring-primary/20" : "border-border/50 hover:border-primary/50"}`}
+                onClick={() => setPaymentOption("full")}
+              >
+                <CardContent className="p-4 text-center">
+                  <h3 className="font-semibold text-lg">Pay in Full</h3>
+                  <div className="text-2xl font-bold text-primary mt-1">${state.servicePrice.toFixed(2)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">Nothing due at appointment</p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
 
         {/* Method selection */}
         <div className="grid grid-cols-2 gap-4 mb-8">

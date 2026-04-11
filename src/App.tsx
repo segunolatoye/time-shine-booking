@@ -11,6 +11,8 @@ import DateTimeSelect from "./pages/book/DateTimeSelect";
 import CustomerDetails from "./pages/book/CustomerDetails";
 import Payment from "./pages/book/Payment";
 import BookingConfirmation from "./pages/book/BookingConfirmation";
+import PayBalance from "./pages/book/PayBalance";
+import PaymentSuccess from "./pages/book/PaymentSuccess";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -36,6 +38,8 @@ const App = () => (
             <Route path="/book/datetime" element={<DateTimeSelect />} />
             <Route path="/book/details" element={<CustomerDetails />} />
             <Route path="/book/payment" element={<Payment />} />
+            <Route path="/book/pay-balance/:token" element={<PayBalance />} />
+            <Route path="/book/payment-success/:token" element={<PaymentSuccess />} />
             <Route path="/booking/:token" element={<BookingConfirmation />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminLayout />}>
