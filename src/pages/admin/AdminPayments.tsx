@@ -2,31 +2,38 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, XCircle, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
+import { DataTable, Column } from "@/components/admin/DataTable";
 
 const AdminPayments = () => {
   const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [refundPayment, setRefundPayment] = useState<any>(null);
   const [refundNotes, setRefundNotes] = useState("");
   const [cancelBookingToo, setCancelBookingToo] = useState(true);
   const { toast } = useToast();
 
   const fetchPayments = async () => {
+    setLoading(true);
     const { data } = await supabase
       .from("payments")
       .select("*, bookings(customer_name, customer_email, booking_date, services(name))")
       .order("created_at", { ascending: false });
     setPayments(data || []);
+    setLoading(false);
   };
 
   useEffect(() => { fetchPayments(); }, []);
+
+  const filteredPayments = statusFilter === "all" ? payments : payments.filter((p) => p.status === statusFilter);
 
   const verifyPayment = async (payment: any, approved: boolean) => {
     const newStatus = approved ? "paid_full" : "failed";
@@ -36,7 +43,6 @@ const AdminPayments = () => {
       admin_notes: approved ? null : "Rejected by admin",
     }).eq("id", payment.id);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-
     if (approved) {
       await supabase.from("bookings").update({ status: "confirmed" as any }).eq("id", payment.booking_id);
     }
@@ -52,7 +58,6 @@ const AdminPayments = () => {
       verified_at: new Date().toISOString(),
     }).eq("id", refundPayment.id);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-
     if (cancelBookingToo) {
       await supabase.from("bookings").update({ status: "cancelled" as any }).eq("id", refundPayment.booking_id);
     }
@@ -77,56 +82,103 @@ const AdminPayments = () => {
 
   const canRefund = (status: string) => ["paid_full", "paid_partial"].includes(status);
 
+  const columns: Column<any>[] = [
+    {
+      key: "customer",
+      header: "Customer",
+      render: (p) => (
+        <div className="min-w-0">
+          <p className="font-medium text-sm truncate">{p.bookings?.customer_name}</p>
+          <p className="text-xs text-muted-foreground truncate">{p.bookings?.services?.name}</p>
+        </div>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      sortable: true,
+      render: (p) => <span className="text-sm font-medium">${Number(p.amount).toFixed(2)}</span>,
+    },
+    {
+      key: "method",
+      header: "Method",
+      hideOnMobile: true,
+      render: (p) => <span className="text-sm">{p.method === "cash_app" ? "Cash App" : "Zelle"}</span>,
+    },
+    {
+      key: "reference",
+      header: "Reference",
+      hideOnMobile: true,
+      render: (p) => <span className="text-xs text-muted-foreground">{p.reference || "—"}</span>,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (p) => (
+        <Badge className={`${statusColor(p.status)} border-0 text-xs`}>
+          {p.status.replace(/_/g, " ")}
+        </Badge>
+      ),
+    },
+    {
+      key: "created_at",
+      header: "Date",
+      sortable: true,
+      hideOnMobile: true,
+      render: (p) => <span className="text-xs text-muted-foreground">{format(new Date(p.created_at), "MMM d, yyyy")}</span>,
+    },
+  ];
+
   return (
     <div>
       <h1 className="text-xl md:text-2xl font-serif font-semibold text-foreground mb-4 md:mb-6">Payment Verification</h1>
 
-      <div className="space-y-3">
-        {payments.map((p) => (
-          <Card key={p.id}>
-            <CardContent className="p-3 md:p-4">
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-sm md:text-base truncate">{p.bookings?.customer_name}</h3>
-                    <p className="text-xs md:text-sm text-muted-foreground truncate">
-                      {p.bookings?.services?.name} · ${Number(p.amount).toFixed(2)} via {p.method === "cash_app" ? "Cash App" : "Zelle"}
-                    </p>
-                    {p.reference && <p className="text-xs text-muted-foreground">Ref: {p.reference}</p>}
-                    {p.admin_notes && <p className="text-xs text-muted-foreground italic">Note: {p.admin_notes}</p>}
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {format(new Date(p.created_at), "MMM d, yyyy h:mm a")}
-                    </p>
-                  </div>
-                  <Badge className={`${statusColor(p.status)} border-0 shrink-0 text-xs`}>
-                    {p.status.replace(/_/g, " ")}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {p.status === "pending_verification" && (
-                    <>
-                      <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-green-600 text-xs" onClick={() => verifyPayment(p, true)}>
-                        <CheckCircle className="w-3.5 h-3.5" /> Approve
-                      </Button>
-                      <Button size="sm" variant="outline" className="flex-1 gap-1.5 text-destructive text-xs" onClick={() => verifyPayment(p, false)}>
-                        <XCircle className="w-3.5 h-3.5" /> Reject
-                      </Button>
-                    </>
-                  )}
-                  {canRefund(p.status) && (
-                    <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => { setRefundPayment(p); setRefundNotes(""); setCancelBookingToo(true); }}>
-                      <RotateCcw className="w-3.5 h-3.5" /> Refund
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-        {payments.length === 0 && <p className="text-muted-foreground text-sm">No payments yet.</p>}
-      </div>
+      <DataTable
+        data={filteredPayments}
+        columns={columns}
+        loading={loading}
+        searchPlaceholder="Search by customer..."
+        searchFn={(p, q) =>
+          p.bookings?.customer_name?.toLowerCase().includes(q) ||
+          p.reference?.toLowerCase().includes(q) ||
+          p.bookings?.customer_email?.toLowerCase().includes(q)
+        }
+        filters={
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-44 h-9"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="pending_verification">Pending Verification</SelectItem>
+              <SelectItem value="paid_full">Paid Full</SelectItem>
+              <SelectItem value="paid_partial">Paid Partial</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
+              <SelectItem value="refunded">Refunded</SelectItem>
+            </SelectContent>
+          </Select>
+        }
+        actions={(p) => (
+          <div className="flex gap-1">
+            {p.status === "pending_verification" && (
+              <>
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" title="Approve" onClick={() => verifyPayment(p, true)}>
+                  <CheckCircle className="w-4 h-4" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" title="Reject" onClick={() => verifyPayment(p, false)}>
+                  <XCircle className="w-4 h-4" />
+                </Button>
+              </>
+            )}
+            {canRefund(p.status) && (
+              <Button size="icon" variant="ghost" className="h-8 w-8" title="Refund" onClick={() => { setRefundPayment(p); setRefundNotes(""); setCancelBookingToo(true); }}>
+                <RotateCcw className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+        )}
+        emptyMessage="No payments yet."
+      />
 
-      {/* Refund Dialog */}
       <Dialog open={!!refundPayment} onOpenChange={(v) => !v && setRefundPayment(null)}>
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
