@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Globe, Check, Loader2, Mail } from "lucide-react";
@@ -37,6 +38,7 @@ const AdminSettings = () => {
   const [buffer, setBuffer] = useState({ minutes: 0 });
   const [salonName, setSalonName] = useState("Hair by Rhuqqui");
   const [baseUrl, setBaseUrl] = useState("");
+  const [showDuration, setShowDuration] = useState(true);
   const [terms, setTerms] = useState("");
   const [timezone, setTimezone] = useState("America/New_York");
   const [emailConfig, setEmailConfig] = useState({ from_name: "", from_email: "", admin_email: "", resend_api_key: "" });
@@ -60,6 +62,7 @@ const AdminSettings = () => {
         if (s.key === "buffer_time") setBuffer(v);
         if (s.key === "salon_name") setSalonName(v.name || "Hair by Rhuqqui");
         if (s.key === "base_url") setBaseUrl(v.url || "");
+        if (s.key === "show_service_duration") setShowDuration(v.enabled !== false);
         if (s.key === "terms_and_conditions") setTerms(v.text || "");
         if (s.key === "timezone") setTimezone(v.timezone || "America/New_York");
         if (s.key === "email_config") setEmailConfig({ from_name: "", from_email: "", admin_email: "", resend_api_key: "", ...v });
@@ -90,6 +93,7 @@ const AdminSettings = () => {
 
   useEffect(() => { debouncedSave("salon_name", { name: salonName }); }, [salonName]);
   useEffect(() => { debouncedSave("base_url", { url: baseUrl }); }, [baseUrl]);
+  useEffect(() => { debouncedSave("show_service_duration", { enabled: showDuration }); }, [showDuration]);
   useEffect(() => { debouncedSave("terms_and_conditions", { text: terms }); }, [terms]);
   useEffect(() => { debouncedSave("timezone", { timezone }); }, [timezone]);
   useEffect(() => { debouncedSave("cash_app_details", cashApp); }, [cashApp]);
@@ -163,7 +167,7 @@ const AdminSettings = () => {
           <CardHeader className="px-4 md:px-6">
             <div className="flex items-center justify-between">
               <CardTitle className="font-serif text-base md:text-lg">Salon Info</CardTitle>
-              <SaveIndicator status={saveStatuses["salon_name"] || saveStatuses["base_url"] || "idle"} />
+              <SaveIndicator status={saveStatuses["salon_name"] || saveStatuses["base_url"] || saveStatuses["show_service_duration"] || "idle"} />
             </div>
           </CardHeader>
           <CardContent className="px-4 md:px-6 space-y-3">
@@ -175,6 +179,13 @@ const AdminSettings = () => {
               <Label>Website Base URL</Label>
               <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="mt-1" placeholder="https://example.com" />
               <p className="text-xs text-muted-foreground mt-1.5">Used for generating links in emails (e.g., booking status).</p>
+            </div>
+            <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
+              <div className="space-y-0.5">
+                <Label>Show Service Duration</Label>
+                <p className="text-xs text-muted-foreground">Display estimated service time on the frontend.</p>
+              </div>
+              <Switch checked={showDuration} onCheckedChange={setShowDuration} />
             </div>
           </CardContent>
         </Card>

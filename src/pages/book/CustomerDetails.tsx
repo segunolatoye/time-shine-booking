@@ -27,6 +27,7 @@ const CustomerDetails = () => {
   const [terms, setTerms] = React.useState<string | null>(null);
   const [accepted, setAccepted] = React.useState(false);
   const [termsError, setTermsError] = React.useState(false);
+  const [showDuration, setShowDuration] = React.useState(true);
   
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -35,13 +36,19 @@ const CustomerDetails = () => {
   React.useEffect(() => {
     if (!state?.serviceId) navigate("/");
 
-    const fetchTerms = async () => {
-      const { data } = await supabase.from("settings").select("value").eq("key", "terms_and_conditions").maybeSingle();
-      if (data?.value?.text) {
-        setTerms(data.value.text);
+    const fetchSettings = async () => {
+      const { data } = await supabase.from("settings").select("key, value").in("key", ["terms_and_conditions", "show_service_duration"]);
+      if (data) {
+        const termsData = data.find(d => d.key === "terms_and_conditions");
+        if (termsData?.value?.text) setTerms(termsData.value.text);
+        
+        const durationData = data.find(d => d.key === "show_service_duration");
+        if (durationData?.value !== undefined) {
+          setShowDuration(durationData.value.enabled !== false);
+        }
       }
     };
-    fetchTerms();
+    fetchSettings();
   }, [state, navigate]);
 
   const onSubmit = (data: FormData) => {
@@ -149,7 +156,7 @@ const CustomerDetails = () => {
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Clock className="w-4 h-4" />
-                <span>{displayTime} · {state?.serviceDuration} min</span>
+                <span>{displayTime}{showDuration && state?.serviceDuration ? ` · ${state.serviceDuration} min` : ""}</span>
               </div>
               <div className="border-t pt-3 flex items-center justify-between font-semibold text-foreground">
                 <span>Total</span>
