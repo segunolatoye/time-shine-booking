@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, RotateCcw, Trash2 } from "lucide-react";
+import { CheckCircle, XCircle, RotateCcw, Trash2, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { DataTable, Column } from "@/components/admin/DataTable";
 
@@ -21,6 +21,7 @@ const AdminPayments = () => {
   const [refundNotes, setRefundNotes] = useState("");
   const [cancelBookingToo, setCancelBookingToo] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchPayments = async () => {
@@ -80,6 +81,22 @@ const AdminPayments = () => {
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     else { toast({ title: "Payment deleted" }); fetchPayments(); }
     setDeleteId(null);
+  };
+
+  const viewReceipt = async (urlOrPath: string) => {
+    if (!urlOrPath) return;
+    // If it's already a full public URL, just open it
+    if (urlOrPath.startsWith("http")) {
+      setReceiptUrl(urlOrPath);
+      return;
+    }
+    // Otherwise, generate a secure temporary URL from the private bucket
+    const { data, error } = await supabase.storage.from("payment-proofs").createSignedUrl(urlOrPath, 60);
+    if (error) {
+      toast({ title: "Error loading receipt", description: error.message, variant: "destructive" });
+    } else if (data) {
+      setReceiptUrl(data.signedUrl);
+    }
   };
 
   const statusColor = (status: string) => {
@@ -185,6 +202,11 @@ const AdminPayments = () => {
         }
         actions={(p) => (
           <div className="flex gap-1">
+            {p.receipt_url && (
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600" title="View Receipt" onClick={() => viewReceipt(p.receipt_url)}>
+                <FileText className="w-4 h-4" />
+              </Button>
+            )}
             {p.status === "pending_verification" && (
               <>
                 <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" title="Approve" onClick={() => verifyPayment(p, true)}>
@@ -245,6 +267,19 @@ const AdminPayments = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!receiptUrl} onOpenChange={(v) => !v && setReceiptUrl(null)}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-3xl h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Payment Receipt</DialogTitle>
+          </DialogHeader>
+          {receiptUrl && (
+            <div className="flex-1 overflow-hidden rounded-md border border-border bg-secondary/10">
+              <iframe src={receiptUrl} className="w-full h-full" title="Payment Receipt" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

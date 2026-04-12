@@ -6,6 +6,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const wrapEmailHtml = (bodyHtml: string, title: string) => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f9fafb; margin: 0; padding: 40px 20px; color: #3f3f46; line-height: 1.6; }
+    .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e4e4e7; }
+    .header { background-color: #18181b; color: #ffffff; padding: 24px; text-align: center; font-size: 20px; font-weight: 600; letter-spacing: 0.5px; }
+    .content { padding: 32px; font-size: 15px; }
+    .footer { padding: 20px; text-align: center; font-size: 12px; color: #a1a1aa; border-top: 1px solid #e4e4e7; background-color: #fafafa; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">${title}</div>
+    <div class="content">
+      ${bodyHtml}
+    </div>
+    <div class="footer">
+      &copy; ${new Date().getFullYear()} ${title}. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>
+`;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -29,7 +59,7 @@ serve(async (req) => {
           from: `${config.from_name} <${config.from_email}>`,
           to: toArray,
           subject,
-          html,
+          html: wrapEmailHtml(html, config.from_name || "Our Salon"),
         }),
       });
       const data = await res.json();
@@ -48,12 +78,13 @@ serve(async (req) => {
     const { data: settings } = await supabase
       .from('settings')
       .select('key, value')
-      .in('key', ['email_config', 'email_templates', 'salon_name']);
+      .in('key', ['email_config', 'email_templates', 'salon_name', 'base_url']);
       
     const configMap = (settings || []).reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {} as any);
     const emailConfig = configMap.email_config || {};
     const templates = configMap.email_templates || {};
     const salonName = configMap.salon_name?.name || "Our Salon";
+    const baseUrl = configMap.base_url?.url ? configMap.base_url.url.replace(/\/$/, '') : "https://your-website.com";
 
     if (!emailConfig?.resend_api_key || !emailConfig?.from_email) {
       throw new Error("Resend API key or From Email missing in settings");
@@ -75,7 +106,7 @@ serve(async (req) => {
           from: `${emailConfig.from_name || salonName} <${emailConfig.from_email}>`,
           to: toArray,
           subject,
-          html,
+          html: wrapEmailHtml(html, salonName),
         }),
       });
 
@@ -95,6 +126,8 @@ serve(async (req) => {
         .replace(/{{booking_date}}/g, data.booking_date || "")
         .replace(/{{booking_time}}/g, data.start_time ? data.start_time.substring(0, 5) : "")
         .replace(/{{amount}}/g, data.amount ? `$${Number(data.amount).toFixed(2)}` : "")
+        .replace(/{{token}}/g, data.token || "")
+        .replace(/{{base_url}}/g, baseUrl)
         .replace(/{{salon_name}}/g, salonName);
     };
 
@@ -111,11 +144,15 @@ serve(async (req) => {
 
       // Event: New Booking
       if (type === 'INSERT') {
-        if (templates?.new_booking_admin?.enabled) {
-          await sendEmail(emailConfig.admin_email, populate(templates.new_booking_admin.subject, tData), populate(templates.new_booking_admin.body, tData));
+        if (templates?.new_booking_admin?.enabled !== false) {
+          const subj = templates?.new_booking_admin?.subject || "New Booking: {{customer_name}}";
+          const body = templates?.new_booking_admin?.body || "<p>You have a new booking.</p>\n<p><strong>Customer:</strong> {{customer_name}}<br/><strong>Service:</strong> {{service_name}}<br/><strong>Date:</strong> {{booking_date}}<br/><strong>Time:</strong> {{booking_time}}</p>\n<p><a href=\"{{base_url}}/admin/bookings\">View Bookings in Admin Panel</a></p>";
+          await sendEmail(emailConfig.admin_email, populate(subj, tData), populate(body, tData));
         }
-        if (templates?.booking_confirmation?.enabled) {
-          await sendEmail(record.customer_email, populate(templates.booking_confirmation.subject, tData), populate(templates.booking_confirmation.body, tData));
+        if (templates?.booking_confirmation?.enabled !== false) {
+          const subj = templates?.booking_confirmation?.subject || "Booking Confirmed: {{service_name}}";
+          const body = templates?.booking_confirmation?.body || "<p>Hi {{customer_name}},</p>\n<p>Your booking for <strong>{{service_name}}</strong> on <strong>{{booking_date}}</strong> at <strong>{{booking_time}}</strong> is confirmed.</p>\n<p>View your booking details and status here:<br/><a href=\"{{base_url}}/booking/{{token}}\">{{base_url}}/booking/{{token}}</a></p>\n<p>Thank you,<br/>{{salon_name}}</p>";
+          await sendEmail(record.customer_email, populate(subj, tData), populate(body, tData));
         }
       }
       // Event: Updated Booking
@@ -127,7 +164,7 @@ serve(async (req) => {
           }
           if (templates?.cancellation_customer?.enabled !== false) {
             const subj = templates?.cancellation_customer?.subject || "Booking Cancelled - {{salon_name}}";
-            const body = templates?.cancellation_customer?.body || "<p>Hi {{customer_name}}, your booking for {{service_name}} on {{booking_date}} has been cancelled.</p>";
+            const body = templates?.cancellation_customer?.body || "<p>Hi {{customer_name}}, your booking for {{service_name}} on {{booking_date}} has been cancelled.</p>\n<p>View your booking details here:<br/><a href=\"{{base_url}}/booking/{{token}}\">{{base_url}}/booking/{{token}}</a></p>";
             await sendEmail(record.customer_email, populate(subj, tData), populate(body, tData));
           }
         }
@@ -135,12 +172,12 @@ serve(async (req) => {
         else if ((record.booking_date !== old_record.booking_date || record.start_time !== old_record.start_time) && record.status !== 'cancelled') {
           if (templates?.reschedule_customer?.enabled !== false) {
             const subj = templates?.reschedule_customer?.subject || "Booking Rescheduled - {{salon_name}}";
-            const body = templates?.reschedule_customer?.body || "<p>Hi {{customer_name}}, your booking for {{service_name}} has been rescheduled to {{booking_date}} at {{booking_time}}.</p>";
+            const body = templates?.reschedule_customer?.body || "<p>Hi {{customer_name}}, your booking for {{service_name}} has been rescheduled to {{booking_date}} at {{booking_time}}.</p>\n<p>View your booking details here:<br/><a href=\"{{base_url}}/booking/{{token}}\">{{base_url}}/booking/{{token}}</a></p>";
             await sendEmail(record.customer_email, populate(subj, tData), populate(body, tData));
           }
           if (templates?.reschedule_admin?.enabled !== false) {
             const subj = templates?.reschedule_admin?.subject || "Booking Rescheduled: {{customer_name}}";
-            const body = templates?.reschedule_admin?.body || "<p>{{customer_name}}'s booking was rescheduled to {{booking_date}} at {{booking_time}}.</p>";
+            const body = templates?.reschedule_admin?.body || "<p>{{customer_name}}'s booking was rescheduled to {{booking_date}} at {{booking_time}}.</p>\n<p><a href=\"{{base_url}}/admin/bookings\">View Bookings in Admin Panel</a></p>";
             await sendEmail(emailConfig.admin_email, populate(subj, tData), populate(body, tData));
           }
         }
@@ -149,7 +186,7 @@ serve(async (req) => {
 
     // B. Payments (New Payment Submitted)
     else if (table === 'payments' && type === 'INSERT') {
-      const { data: bk } = await supabase.from('bookings').select('customer_name, customer_email, booking_date, start_time, services(name)').eq('id', record.booking_id).single();
+      const { data: bk } = await supabase.from('bookings').select('customer_name, customer_email, booking_date, start_time, token, services(name)').eq('id', record.booking_id).single();
       if (bk) {
         const pData = {
           ...record,
@@ -164,7 +201,7 @@ serve(async (req) => {
         // Admin / Group Alert
         if (templates?.payment_admin?.enabled !== false) {
           const subj = templates?.payment_admin?.subject || "Payment Received: {{customer_name}}";
-          const body = templates?.payment_admin?.body || "<p>{{customer_name}} just submitted a payment of {{amount}} for {{service_name}}.</p>";
+          const body = templates?.payment_admin?.body || "<p>{{customer_name}} just submitted a payment of {{amount}} for {{service_name}}.</p>\n<p><a href=\"{{base_url}}/admin/payments\">View Payments in Admin Panel</a></p>";
           await sendEmail(emailConfig.admin_email, populate(subj, pData), populate(body, pData));
         }
       }

@@ -1,9 +1,11 @@
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Calendar, Clock, User, DollarSign } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -22,15 +24,31 @@ const CustomerDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as any;
+  const [terms, setTerms] = React.useState<string | null>(null);
+  const [accepted, setAccepted] = React.useState(false);
+  const [termsError, setTermsError] = React.useState(false);
+  
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
   React.useEffect(() => {
     if (!state?.serviceId) navigate("/");
+
+    const fetchTerms = async () => {
+      const { data } = await supabase.from("settings").select("value").eq("key", "terms_and_conditions").maybeSingle();
+      if (data?.value?.text) {
+        setTerms(data.value.text);
+      }
+    };
+    fetchTerms();
   }, [state, navigate]);
 
   const onSubmit = (data: FormData) => {
+    if (terms && !accepted) {
+      setTermsError(true);
+      return;
+    }
     navigate("/book/payment", {
       state: {
         ...state,
@@ -79,6 +97,33 @@ const CustomerDetails = () => {
                 <Label htmlFor="phone">Phone (optional)</Label>
                 <Input id="phone" {...register("phone")} className="mt-1" placeholder="+1 (555) 123-4567" />
               </div>
+              
+              {terms && (
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <div>
+                    <Label>Terms & Conditions</Label>
+                    <div className="mt-2 bg-secondary/30 p-4 rounded-md text-sm text-muted-foreground whitespace-pre-wrap h-32 overflow-y-auto border border-border">
+                      {terms}
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="terms"
+                      checked={accepted}
+                      onCheckedChange={(checked) => {
+                        setAccepted(checked as boolean);
+                        if (checked) setTermsError(false);
+                      }}
+                      className="mt-1"
+                    />
+                    <div className="space-y-1.5">
+                      <Label htmlFor="terms" className="text-sm font-medium leading-none cursor-pointer">I agree to the Terms and Conditions *</Label>
+                      {termsError && <p className="text-sm text-destructive">You must accept the terms and conditions to proceed.</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <Button type="submit" className="w-full rounded-full" size="lg">
                 Continue to Payment
               </Button>

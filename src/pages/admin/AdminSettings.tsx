@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Globe, Check, Loader2, Mail } from "lucide-react";
@@ -35,6 +36,8 @@ const AdminSettings = () => {
   const [deposit, setDeposit] = useState({ type: "none", value: 0 });
   const [buffer, setBuffer] = useState({ minutes: 0 });
   const [salonName, setSalonName] = useState("Hair by Rhuqqui");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [terms, setTerms] = useState("");
   const [timezone, setTimezone] = useState("America/New_York");
   const [emailConfig, setEmailConfig] = useState({ from_name: "", from_email: "", admin_email: "", resend_api_key: "" });
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplates>(DEFAULT_TEMPLATES);
@@ -56,6 +59,8 @@ const AdminSettings = () => {
         if (s.key === "deposit_rules") setDeposit(v);
         if (s.key === "buffer_time") setBuffer(v);
         if (s.key === "salon_name") setSalonName(v.name || "Hair by Rhuqqui");
+        if (s.key === "base_url") setBaseUrl(v.url || "");
+        if (s.key === "terms_and_conditions") setTerms(v.text || "");
         if (s.key === "timezone") setTimezone(v.timezone || "America/New_York");
         if (s.key === "email_config") setEmailConfig({ from_name: "", from_email: "", admin_email: "", resend_api_key: "", ...v });
         if (s.key === "email_templates") setEmailTemplates({ ...DEFAULT_TEMPLATES, ...v });
@@ -84,6 +89,8 @@ const AdminSettings = () => {
   }, [loaded, saveSetting]);
 
   useEffect(() => { debouncedSave("salon_name", { name: salonName }); }, [salonName]);
+  useEffect(() => { debouncedSave("base_url", { url: baseUrl }); }, [baseUrl]);
+  useEffect(() => { debouncedSave("terms_and_conditions", { text: terms }); }, [terms]);
   useEffect(() => { debouncedSave("timezone", { timezone }); }, [timezone]);
   useEffect(() => { debouncedSave("cash_app_details", cashApp); }, [cashApp]);
   useEffect(() => { debouncedSave("zelle_details", zelle); }, [zelle]);
@@ -120,8 +127,25 @@ const AdminSettings = () => {
     const template = (emailTemplates as any)[templateKey];
     if (!template) return "";
     let html = template.body || "";
-    html = html.replace(/{{customer_name}}/g, "Jane Doe").replace(/{{service_name}}/g, "Signature Haircut").replace(/{{booking_date}}/g, "October 25, 2024").replace(/{{booking_time}}/g, "2:00 PM").replace(/{{salon_name}}/g, salonName || "Our Salon");
-    return html;
+    html = html.replace(/{{customer_name}}/g, "Jane Doe")
+               .replace(/{{service_name}}/g, "Signature Haircut")
+               .replace(/{{booking_date}}/g, "October 25, 2024")
+               .replace(/{{booking_time}}/g, "2:00 PM")
+               .replace(/{{amount}}/g, "$50.00")
+               .replace(/{{salon_name}}/g, salonName || "Our Salon")
+               .replace(/{{token}}/g, "abc-123-xyz")
+               .replace(/{{base_url}}/g, baseUrl ? baseUrl.replace(/\/$/, '') : "https://your-website.com");
+               
+    const sName = salonName || "Our Salon";
+    return `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f9fafb; padding: 40px 20px; color: #3f3f46; line-height: 1.6; border-radius: 8px;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e4e4e7;">
+          <div style="background-color: #18181b; color: #ffffff; padding: 24px; text-align: center; font-size: 20px; font-weight: 600; letter-spacing: 0.5px;">${sName}</div>
+          <div style="padding: 32px; font-size: 15px;">${html}</div>
+          <div style="padding: 20px; text-align: center; font-size: 12px; color: #a1a1aa; border-top: 1px solid #e4e4e7; background-color: #fafafa;">&copy; ${new Date().getFullYear()} ${sName}. All rights reserved.</div>
+        </div>
+      </div>
+    `;
   };
 
   useEffect(() => {
@@ -139,13 +163,18 @@ const AdminSettings = () => {
           <CardHeader className="px-4 md:px-6">
             <div className="flex items-center justify-between">
               <CardTitle className="font-serif text-base md:text-lg">Salon Info</CardTitle>
-              <SaveIndicator status={saveStatuses["salon_name"] || "idle"} />
+              <SaveIndicator status={saveStatuses["salon_name"] || saveStatuses["base_url"] || "idle"} />
             </div>
           </CardHeader>
           <CardContent className="px-4 md:px-6 space-y-3">
             <div>
               <Label>Salon Name</Label>
               <Input value={salonName} onChange={(e) => setSalonName(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Website Base URL</Label>
+              <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="mt-1" placeholder="https://example.com" />
+              <p className="text-xs text-muted-foreground mt-1.5">Used for generating links in emails (e.g., booking status).</p>
             </div>
           </CardContent>
         </Card>
@@ -250,6 +279,22 @@ const AdminSettings = () => {
         </Card>
       </div>
 
+      <Card>
+        <CardHeader className="px-4 md:px-6">
+          <div className="flex items-center justify-between">
+            <CardTitle className="font-serif text-base md:text-lg">Terms & Conditions</CardTitle>
+            <SaveIndicator status={saveStatuses["terms_and_conditions"] || "idle"} />
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 md:px-6 space-y-3">
+          <div>
+            <Label>Booking Terms & Policy</Label>
+            <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} className="mt-1 min-h-[100px]" placeholder="e.g. All deposits are non-refundable. Please arrive 10 minutes early..." />
+            <p className="text-xs text-muted-foreground mt-1.5">Displayed to customers during the details step of the booking process.</p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Email Configuration */}
       <Card>
         <CardHeader className="px-4 md:px-6">
@@ -324,7 +369,7 @@ const AdminSettings = () => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex-1 overflow-auto border border-border rounded-md p-4 bg-white text-black dark:bg-white">
+            <div className="flex-1 overflow-auto rounded-md">
               <div dangerouslySetInnerHTML={{ __html: getPreviewHtml(previewTemplate) }} />
             </div>
           </div>
