@@ -22,6 +22,7 @@ const BookingConfirmation = () => {
   const [booking, setBooking] = useState<any>(null);
   const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [contactEmail, setContactEmail] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -48,6 +49,9 @@ const BookingConfirmation = () => {
         const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
         setBalance(Math.max(0, totalService - totalPaid));
       }
+
+      const { data: settingsData } = await supabase.from("settings").select("value").eq("key", "email_config").maybeSingle();
+      if (settingsData?.value?.admin_email) setContactEmail(settingsData.value.admin_email);
 
       setLoading(false);
     };
@@ -186,6 +190,15 @@ const BookingConfirmation = () => {
             )}
           </CardContent>
         </Card>
+
+        {contactEmail && (
+          <div className="mt-8 bg-secondary/30 p-4 rounded-lg border border-border text-center">
+            <p className="text-sm text-muted-foreground mb-2">Need to make changes to your booking?</p>
+            <a href={`mailto:${contactEmail}`} className="text-sm font-medium text-primary hover:underline">
+              Contact Support
+            </a>
+          </div>
+        )}
 
         <div className="text-center mt-8">
           <Button variant="ghost" onClick={() => navigate("/")} className="text-muted-foreground">

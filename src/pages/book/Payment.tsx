@@ -29,7 +29,7 @@ const Payment = () => {
       const { data } = await supabase
         .from("settings")
         .select("key, value")
-        .in("key", ["cash_app_details", "zelle_details", "deposit_rules"]);
+        .in("key", ["cash_app_details", "zelle_details", "deposit_rules", "email_config"]);
       const map: any = {};
       (data || []).forEach((s: any) => { map[s.key] = s.value; });
       setSettings(map);
@@ -279,6 +279,15 @@ const Payment = () => {
             >
               {submitting ? "Submitting..." : "Submit Booking"}
             </Button>
+          </div>
+        )}
+
+        {settings.email_config?.admin_email && (
+          <div className="mt-8 bg-secondary/30 p-4 rounded-lg border border-border text-center">
+            <p className="text-sm text-muted-foreground mb-2">Need help with your payment?</p>
+            <a href={`mailto:${settings.email_config.admin_email}`} className="text-sm font-medium text-primary hover:underline">
+              Contact Support
+            </a>
           </div>
         )}
       </div>

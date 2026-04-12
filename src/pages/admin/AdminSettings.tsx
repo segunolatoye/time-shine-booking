@@ -39,7 +39,13 @@ const AdminSettings = () => {
   const [salonName, setSalonName] = useState("Hair by Rhuqqui");
   const [baseUrl, setBaseUrl] = useState("");
   const [showDuration, setShowDuration] = useState(true);
+  const [enableStaff, setEnableStaff] = useState(true);
   const [terms, setTerms] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [enablePayments, setEnablePayments] = useState(true);
   const [timezone, setTimezone] = useState("America/New_York");
   const [emailConfig, setEmailConfig] = useState({ from_name: "", from_email: "", admin_email: "", resend_api_key: "" });
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplates>(DEFAULT_TEMPLATES);
@@ -63,7 +69,13 @@ const AdminSettings = () => {
         if (s.key === "salon_name") setSalonName(v.name || "Hair by Rhuqqui");
         if (s.key === "base_url") setBaseUrl(v.url || "");
         if (s.key === "show_service_duration") setShowDuration(v.enabled !== false);
+        if (s.key === "enable_staff_selection") setEnableStaff(v.enabled !== false);
         if (s.key === "terms_and_conditions") setTerms(v.text || "");
+        if (s.key === "contact_phone") setPhone(v.phone || "");
+        if (s.key === "salon_address") setAddress(v.address || "");
+        if (s.key === "instagram_url") setInstagram(v.url || "");
+        if (s.key === "facebook_url") setFacebook(v.url || "");
+        if (s.key === "enable_payments") setEnablePayments(v.enabled !== false);
         if (s.key === "timezone") setTimezone(v.timezone || "America/New_York");
         if (s.key === "email_config") setEmailConfig({ from_name: "", from_email: "", admin_email: "", resend_api_key: "", ...v });
         if (s.key === "email_templates") setEmailTemplates({ ...DEFAULT_TEMPLATES, ...v });
@@ -94,7 +106,13 @@ const AdminSettings = () => {
   useEffect(() => { debouncedSave("salon_name", { name: salonName }); }, [salonName]);
   useEffect(() => { debouncedSave("base_url", { url: baseUrl }); }, [baseUrl]);
   useEffect(() => { debouncedSave("show_service_duration", { enabled: showDuration }); }, [showDuration]);
+  useEffect(() => { debouncedSave("enable_staff_selection", { enabled: enableStaff }); }, [enableStaff]);
   useEffect(() => { debouncedSave("terms_and_conditions", { text: terms }); }, [terms]);
+  useEffect(() => { debouncedSave("contact_phone", { phone }); }, [phone]);
+  useEffect(() => { debouncedSave("salon_address", { address }); }, [address]);
+  useEffect(() => { debouncedSave("instagram_url", { url: instagram }); }, [instagram]);
+  useEffect(() => { debouncedSave("facebook_url", { url: facebook }); }, [facebook]);
+  useEffect(() => { debouncedSave("enable_payments", { enabled: enablePayments }); }, [enablePayments]);
   useEffect(() => { debouncedSave("timezone", { timezone }); }, [timezone]);
   useEffect(() => { debouncedSave("cash_app_details", cashApp); }, [cashApp]);
   useEffect(() => { debouncedSave("zelle_details", zelle); }, [zelle]);
@@ -167,7 +185,7 @@ const AdminSettings = () => {
           <CardHeader className="px-4 md:px-6">
             <div className="flex items-center justify-between">
               <CardTitle className="font-serif text-base md:text-lg">Salon Info</CardTitle>
-              <SaveIndicator status={saveStatuses["salon_name"] || saveStatuses["base_url"] || saveStatuses["show_service_duration"] || "idle"} />
+              <SaveIndicator status={saveStatuses["salon_name"] || saveStatuses["base_url"] || saveStatuses["show_service_duration"] || saveStatuses["enable_staff_selection"] || saveStatuses["contact_phone"] || saveStatuses["salon_address"] || saveStatuses["instagram_url"] || saveStatuses["facebook_url"] || "idle"} />
             </div>
           </CardHeader>
           <CardContent className="px-4 md:px-6 space-y-3">
@@ -180,12 +198,35 @@ const AdminSettings = () => {
               <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="mt-1" placeholder="https://example.com" />
               <p className="text-xs text-muted-foreground mt-1.5">Used for generating links in emails (e.g., booking status).</p>
             </div>
+            <div>
+              <Label>Contact Phone</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1" placeholder="(555) 123-4567" />
+            </div>
+            <div>
+              <Label>Salon Address</Label>
+              <Textarea value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1 min-h-[60px]" placeholder="123 Main St, City, ST 12345" />
+            </div>
+            <div>
+              <Label>Instagram URL</Label>
+              <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} className="mt-1" placeholder="https://instagram.com/..." />
+            </div>
+            <div>
+              <Label>Facebook URL</Label>
+              <Input value={facebook} onChange={(e) => setFacebook(e.target.value)} className="mt-1" placeholder="https://facebook.com/..." />
+            </div>
             <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
               <div className="space-y-0.5">
                 <Label>Show Service Duration</Label>
                 <p className="text-xs text-muted-foreground">Display estimated service time on the frontend.</p>
               </div>
               <Switch checked={showDuration} onCheckedChange={setShowDuration} />
+            </div>
+            <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
+              <div className="space-y-0.5">
+                <Label>Enable Staff Selection</Label>
+                <p className="text-xs text-muted-foreground">Allow customers to pick a specific stylist.</p>
+              </div>
+              <Switch checked={enableStaff} onCheckedChange={setEnableStaff} />
             </div>
           </CardContent>
         </Card>
@@ -249,27 +290,38 @@ const AdminSettings = () => {
         <Card>
           <CardHeader className="px-4 md:px-6">
             <div className="flex items-center justify-between">
-              <CardTitle className="font-serif text-base md:text-lg">Deposit Rules</CardTitle>
-              <SaveIndicator status={saveStatuses["deposit_rules"] || "idle"} />
+              <CardTitle className="font-serif text-base md:text-lg">Payment & Deposit Rules</CardTitle>
+              <SaveIndicator status={saveStatuses["deposit_rules"] || saveStatuses["enable_payments"] || "idle"} />
             </div>
           </CardHeader>
           <CardContent className="px-4 md:px-6 space-y-3">
-            <div>
-              <Label>Deposit Type</Label>
-              <Select value={deposit.type} onValueChange={(v) => setDeposit({ ...deposit, type: v })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Full Payment</SelectItem>
-                  <SelectItem value="percentage">Percentage</SelectItem>
-                  <SelectItem value="fixed">Fixed Amount</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {deposit.type !== "none" && (
-              <div>
-                <Label>{deposit.type === "percentage" ? "Percentage (%)" : "Amount ($)"}</Label>
-                <Input type="number" value={deposit.value} onChange={(e) => setDeposit({ ...deposit, value: parseFloat(e.target.value) || 0 })} className="mt-1" />
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="space-y-0.5">
+                <Label>Enable Payments</Label>
+                <p className="text-xs text-muted-foreground">Require customers to submit payment details to book.</p>
               </div>
+              <Switch checked={enablePayments} onCheckedChange={setEnablePayments} />
+            </div>
+            {enablePayments && (
+              <>
+                <div className="pt-1">
+                  <Label>Deposit Type</Label>
+                  <Select value={deposit.type} onValueChange={(v) => setDeposit({ ...deposit, type: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Full Payment</SelectItem>
+                      <SelectItem value="percentage">Percentage</SelectItem>
+                      <SelectItem value="fixed">Fixed Amount</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {deposit.type !== "none" && (
+                  <div>
+                    <Label>{deposit.type === "percentage" ? "Percentage (%)" : "Amount ($)"}</Label>
+                    <Input type="number" value={deposit.value} onChange={(e) => setDeposit({ ...deposit, value: parseFloat(e.target.value) || 0 })} className="mt-1" />
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
