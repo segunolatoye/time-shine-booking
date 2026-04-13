@@ -12,6 +12,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { format, parse } from "date-fns";
+import PublicFooter from "@/components/PublicFooter";
 
 const schema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -119,8 +120,8 @@ const CustomerDetails = () => {
     : "";
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-12">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="max-w-4xl mx-auto px-4 py-12 flex-1 w-full">
         <button
           onClick={() => navigate("/book/datetime", { state })}
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
@@ -222,6 +223,7 @@ const CustomerDetails = () => {
           </div>
         </div>
       </div>
+      <PublicFooter />
     </div>
   );
 };

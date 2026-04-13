@@ -126,7 +126,7 @@ serve(async (req) => {
         .replace(/{{booking_date}}/g, data.booking_date || "")
         .replace(/{{booking_time}}/g, data.start_time ? data.start_time.substring(0, 5) : "")
         .replace(/{{amount}}/g, data.amount ? `$${Number(data.amount).toFixed(2)}` : "")
-        .replace(/{{token}}/g, data.token || "")
+        .replace(/{{token}}/g, data.access_token || "")
         .replace(/{{base_url}}/g, baseUrl)
         .replace(/{{salon_name}}/g, salonName);
     };
@@ -184,9 +184,9 @@ serve(async (req) => {
       }
     }
 
-    // B. Payments (New Payment Submitted)
-    else if (table === 'payments' && type === 'INSERT') {
-      const { data: bk } = await supabase.from('bookings').select('customer_name, customer_email, booking_date, start_time, token, services(name)').eq('id', record.booking_id).single();
+    // B. Payments (New Payment Submitted or Verified)
+    else if (table === 'payments') {
+      const { data: bk } = await supabase.from('bookings').select('customer_name, customer_email, booking_date, start_time, access_token, services(name)').eq('id', record?.booking_id).single();
       if (bk) {
         const pData = {
           ...record,
@@ -195,14 +195,30 @@ serve(async (req) => {
           service_name: bk.services?.name || "a service"
         };
 
-        if (templates?.payment_received?.enabled) {
-          await sendEmail(bk.customer_email, populate(templates.payment_received.subject, pData), populate(templates.payment_received.body, pData));
-        }
-        // Admin / Group Alert
-        if (templates?.payment_admin?.enabled !== false) {
-          const subj = templates?.payment_admin?.subject || "Payment Received: {{customer_name}}";
-          const body = templates?.payment_admin?.body || "<p>{{customer_name}} just submitted a payment of {{amount}} for {{service_name}}.</p>\n<p><a href=\"{{base_url}}/admin/payments\">View Payments in Admin Panel</a></p>";
-          await sendEmail(emailConfig.admin_email, populate(subj, pData), populate(body, pData));
+        if (type === 'INSERT') {
+          // Admin Alert: Sent immediately when customer submits payment
+          if (templates?.payment_admin?.enabled !== false) {
+            const subj = templates?.payment_admin?.subject || "Payment Received: {{customer_name}}";
+            const body = templates?.payment_admin?.body || "<p>{{customer_name}} just submitted a payment of {{amount}} for {{service_name}}.</p>\n<p><a href=\"{{base_url}}/admin/payments\">View Payments in Admin Panel</a></p>";
+            await sendEmail(emailConfig.admin_email, populate(subj, pData), populate(body, pData));
+          }
+        } else if (type === 'UPDATE') {
+          // Customer Alert: Sent only after admin verifies and approves it
+          const wasPending = old_record?.status === 'pending_verification' || old_record?.status === 'pending';
+          const isPaid = record?.status === 'paid_full' || record?.status === 'paid_partial';
+          const isFailed = record?.status === 'failed';
+          
+          if (wasPending && isPaid) {
+            if (templates?.payment_received?.enabled) {
+              await sendEmail(bk.customer_email, populate(templates.payment_received.subject, pData), populate(templates.payment_received.body, pData));
+            }
+          } else if (wasPending && isFailed) {
+            if (templates?.payment_rejected?.enabled !== false) {
+              const subj = templates?.payment_rejected?.subject || "Payment Rejected: Action Required";
+              const body = templates?.payment_rejected?.body || "<p>Hi {{customer_name}},</p>\n<p>Unfortunately, your payment of <strong>{{amount}}</strong> for your upcoming appointment on {{booking_date}} could not be verified.</p>\n<p>Please check your booking details and try again:<br/><a href=\"{{base_url}}/booking/{{token}}\">{{base_url}}/booking/{{token}}</a></p>";
+              await sendEmail(bk.customer_email, populate(subj, pData), populate(body, pData));
+            }
+          }
         }
       }
     }

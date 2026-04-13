@@ -6,6 +6,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Clock, Globe } from "lucide-react";
 import { format, addDays, parse, addMinutes, isBefore, isToday, startOfDay, isSameDay } from "date-fns";
+import PublicFooter from "@/components/PublicFooter";
 
 const DateTimeSelect = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -229,8 +230,8 @@ const DateTimeSelect = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="max-w-4xl mx-auto px-4 py-8 md:py-12 flex-1 w-full">
         <button
           onClick={() => navigate("/book/staff", { state })}
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 md:mb-8 transition-colors"
@@ -307,6 +308,7 @@ const DateTimeSelect = () => {
           </div>
         </div>
       </div>
+      <PublicFooter />
     </div>
   );
 };

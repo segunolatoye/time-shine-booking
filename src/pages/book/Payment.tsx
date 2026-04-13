@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Smartphone, Building, Upload, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import PublicFooter from "@/components/PublicFooter";
 
 const Payment = () => {
   const [paymentMethod, setPaymentMethod] = useState<"cash_app" | "zelle" | null>(null);
@@ -128,8 +129,8 @@ const Payment = () => {
   const hasDeposit = settings.deposit_rules?.type && settings.deposit_rules.type !== "none" && depositAmount > 0 && depositAmount < state.servicePrice;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-12">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="max-w-2xl mx-auto px-4 py-12 flex-1 w-full">
         <button
           onClick={() => navigate("/book/details", { state })}
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
@@ -291,6 +292,7 @@ const Payment = () => {
           </div>
         )}
       </div>
+      <PublicFooter />
     </div>
   );
 };

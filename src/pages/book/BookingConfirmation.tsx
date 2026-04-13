@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, User, CheckCircle, AlertCircle, XCircle, CreditCard } from "lucide-react";
 import { format, parse } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import PublicFooter from "@/components/PublicFooter";
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   pending_payment: { label: "Pending Payment", color: "bg-yellow-100 text-yellow-800", icon: AlertCircle },
@@ -74,25 +75,31 @@ const BookingConfirmation = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      <div className="min-h-screen bg-background flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-pulse text-muted-foreground">Loading...</div>
+        </div>
+        <PublicFooter />
       </div>
     );
   }
 
   if (!booking) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="max-w-md w-full mx-4">
-          <CardContent className="p-8 text-center">
-            <XCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-            <h2 className="text-xl font-serif font-semibold mb-2">Booking Not Found</h2>
-            <p className="text-muted-foreground mb-4">This booking link is invalid or has expired.</p>
-            <Button onClick={() => navigate("/")} className="rounded-full">
-              Back to Home
-            </Button>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-background flex flex-col">
+        <div className="flex-1 flex items-center justify-center">
+          <Card className="max-w-md w-full mx-4">
+            <CardContent className="p-8 text-center">
+              <XCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+              <h2 className="text-xl font-serif font-semibold mb-2">Booking Not Found</h2>
+              <p className="text-muted-foreground mb-4">This booking link is invalid or has expired.</p>
+              <Button onClick={() => navigate("/")} className="rounded-full">
+                Back to Home
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+        <PublicFooter />
       </div>
     );
   }
@@ -102,13 +109,11 @@ const BookingConfirmation = () => {
   const displayDate = format(parse(booking.booking_date, "yyyy-MM-dd", new Date()), "MMMM d, yyyy");
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-12">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="max-w-2xl mx-auto px-4 py-12 flex-1 w-full">
         <div className="text-center mb-8">
           <StatusIcon className={`w-12 h-12 mx-auto mb-4 ${booking.status === "confirmed" ? "text-green-600" : "text-primary"}`} />
-          <h1 className="text-3xl font-serif font-semibold text-foreground mb-2">
-            {booking.status === "confirmed" ? "Booking Confirmed!" : "Booking Submitted"}
-          </h1>
+          
           <Badge className={`${status.color} border-0`}>{status.label}</Badge>
         </div>
 
@@ -206,6 +211,7 @@ const BookingConfirmation = () => {
           </Button>
         </div>
       </div>
+      <PublicFooter />
     </div>
   );
 };

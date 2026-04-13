@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, User } from "lucide-react";
+import PublicFooter from "@/components/PublicFooter";
 
 interface Staff {
   id: string;
@@ -50,8 +51,8 @@ const StaffSelect = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-12">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="max-w-4xl mx-auto px-4 py-12 flex-1 w-full">
         <button
           onClick={() => navigate("/")}
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
@@ -120,6 +121,7 @@ const StaffSelect = () => {
           )}
         </div>
       </div>
+      <PublicFooter />
     </div>
   );
 };

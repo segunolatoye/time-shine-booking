@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, Check, Loader2, Mail } from "lucide-react";
+import { Globe, Check, Loader2, Mail, Upload } from "lucide-react";
 import EmailTemplateEditor, { DEFAULT_TEMPLATES, type EmailTemplates } from "@/components/admin/EmailTemplateEditor";
 
 const COMMON_TIMEZONES = [
@@ -38,7 +38,10 @@ const AdminSettings = () => {
   const [buffer, setBuffer] = useState({ minutes: 0 });
   const [salonName, setSalonName] = useState("Hair by Rhuqqui");
   const [baseUrl, setBaseUrl] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [showDuration, setShowDuration] = useState(true);
+  const [enableBooking, setEnableBooking] = useState(true);
   const [enableStaff, setEnableStaff] = useState(true);
   const [terms, setTerms] = useState("");
   const [phone, setPhone] = useState("");
@@ -46,6 +49,7 @@ const AdminSettings = () => {
   const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
   const [enablePayments, setEnablePayments] = useState(true);
+  const [enableDarkMode, setEnableDarkMode] = useState(true);
   const [timezone, setTimezone] = useState("America/New_York");
   const [emailConfig, setEmailConfig] = useState({ from_name: "", from_email: "", admin_email: "", resend_api_key: "" });
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplates>(DEFAULT_TEMPLATES);
@@ -68,7 +72,9 @@ const AdminSettings = () => {
         if (s.key === "buffer_time") setBuffer(v);
         if (s.key === "salon_name") setSalonName(v.name || "Hair by Rhuqqui");
         if (s.key === "base_url") setBaseUrl(v.url || "");
+        if (s.key === "salon_logo") setLogoUrl(v.url || "");
         if (s.key === "show_service_duration") setShowDuration(v.enabled !== false);
+        if (s.key === "enable_booking") setEnableBooking(v.enabled !== false);
         if (s.key === "enable_staff_selection") setEnableStaff(v.enabled !== false);
         if (s.key === "terms_and_conditions") setTerms(v.text || "");
         if (s.key === "contact_phone") setPhone(v.phone || "");
@@ -76,6 +82,7 @@ const AdminSettings = () => {
         if (s.key === "instagram_url") setInstagram(v.url || "");
         if (s.key === "facebook_url") setFacebook(v.url || "");
         if (s.key === "enable_payments") setEnablePayments(v.enabled !== false);
+        if (s.key === "enable_dark_mode") setEnableDarkMode(v.enabled !== false);
         if (s.key === "timezone") setTimezone(v.timezone || "America/New_York");
         if (s.key === "email_config") setEmailConfig({ from_name: "", from_email: "", admin_email: "", resend_api_key: "", ...v });
         if (s.key === "email_templates") setEmailTemplates({ ...DEFAULT_TEMPLATES, ...v });
@@ -105,7 +112,9 @@ const AdminSettings = () => {
 
   useEffect(() => { debouncedSave("salon_name", { name: salonName }); }, [salonName]);
   useEffect(() => { debouncedSave("base_url", { url: baseUrl }); }, [baseUrl]);
+  useEffect(() => { debouncedSave("salon_logo", { url: logoUrl }); }, [logoUrl]);
   useEffect(() => { debouncedSave("show_service_duration", { enabled: showDuration }); }, [showDuration]);
+  useEffect(() => { debouncedSave("enable_booking", { enabled: enableBooking }); }, [enableBooking]);
   useEffect(() => { debouncedSave("enable_staff_selection", { enabled: enableStaff }); }, [enableStaff]);
   useEffect(() => { debouncedSave("terms_and_conditions", { text: terms }); }, [terms]);
   useEffect(() => { debouncedSave("contact_phone", { phone }); }, [phone]);
@@ -113,6 +122,7 @@ const AdminSettings = () => {
   useEffect(() => { debouncedSave("instagram_url", { url: instagram }); }, [instagram]);
   useEffect(() => { debouncedSave("facebook_url", { url: facebook }); }, [facebook]);
   useEffect(() => { debouncedSave("enable_payments", { enabled: enablePayments }); }, [enablePayments]);
+  useEffect(() => { debouncedSave("enable_dark_mode", { enabled: enableDarkMode }); }, [enableDarkMode]);
   useEffect(() => { debouncedSave("timezone", { timezone }); }, [timezone]);
   useEffect(() => { debouncedSave("cash_app_details", cashApp); }, [cashApp]);
   useEffect(() => { debouncedSave("zelle_details", zelle); }, [zelle]);
@@ -142,6 +152,25 @@ const AdminSettings = () => {
       toast({ title: "Failed to send test email", description: error.message || "Make sure you have deployed the 'send-email' edge function.", variant: "destructive" });
     } finally {
       setTestingEmail(false);
+    }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `logo-${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from("logos").upload(fileName, file);
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from("logos").getPublicUrl(fileName);
+      setLogoUrl(data.publicUrl);
+      toast({ title: "Logo uploaded successfully" });
+    } catch (error: any) {
+      toast({ title: "Upload failed", description: error.message || "Ensure you have a public 'logos' storage bucket created.", variant: "destructive" });
+    } finally {
+      setUploadingLogo(false);
     }
   };
 
@@ -185,7 +214,7 @@ const AdminSettings = () => {
           <CardHeader className="px-4 md:px-6">
             <div className="flex items-center justify-between">
               <CardTitle className="font-serif text-base md:text-lg">Salon Info</CardTitle>
-              <SaveIndicator status={saveStatuses["salon_name"] || saveStatuses["base_url"] || saveStatuses["show_service_duration"] || saveStatuses["enable_staff_selection"] || saveStatuses["contact_phone"] || saveStatuses["salon_address"] || saveStatuses["instagram_url"] || saveStatuses["facebook_url"] || "idle"} />
+              <SaveIndicator status={saveStatuses["salon_name"] || saveStatuses["base_url"] || saveStatuses["salon_logo"] || saveStatuses["show_service_duration"] || saveStatuses["enable_booking"] || saveStatuses["enable_staff_selection"] || saveStatuses["contact_phone"] || saveStatuses["salon_address"] || saveStatuses["instagram_url"] || saveStatuses["facebook_url"] || saveStatuses["enable_dark_mode"] || "idle"} />
             </div>
           </CardHeader>
           <CardContent className="px-4 md:px-6 space-y-3">
@@ -197,6 +226,18 @@ const AdminSettings = () => {
               <Label>Website Base URL</Label>
               <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="mt-1" placeholder="https://example.com" />
               <p className="text-xs text-muted-foreground mt-1.5">Used for generating links in emails (e.g., booking status).</p>
+            </div>
+            <div className="pb-2">
+              <Label>Salon Logo URL</Label>
+              <div className="flex gap-2 mt-1">
+                <Input value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://..." />
+                <div className="relative">
+                  <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-default" onChange={handleLogoUpload} disabled={uploadingLogo} title="Upload Logo" />
+                  <Button type="button" variant="outline" disabled={uploadingLogo}>
+                    {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
             </div>
             <div>
               <Label>Contact Phone</Label>
@@ -223,10 +264,24 @@ const AdminSettings = () => {
             </div>
             <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
               <div className="space-y-0.5">
+                <Label>Enable New Bookings</Label>
+                <p className="text-xs text-muted-foreground">Allow customers to book services from the landing page.</p>
+              </div>
+              <Switch checked={enableBooking} onCheckedChange={setEnableBooking} />
+            </div>
+            <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
+              <div className="space-y-0.5">
                 <Label>Enable Staff Selection</Label>
                 <p className="text-xs text-muted-foreground">Allow customers to pick a specific stylist.</p>
               </div>
               <Switch checked={enableStaff} onCheckedChange={setEnableStaff} />
+            </div>
+            <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
+              <div className="space-y-0.5">
+                <Label>Enable Dark Mode</Label>
+                <p className="text-xs text-muted-foreground">Allow customers to toggle dark mode theme.</p>
+              </div>
+              <Switch checked={enableDarkMode} onCheckedChange={setEnableDarkMode} />
             </div>
           </CardContent>
         </Card>
@@ -423,6 +478,7 @@ const AdminSettings = () => {
                 <SelectContent>
                   <SelectItem value="booking_confirmation">Booking Confirmed</SelectItem>
                   <SelectItem value="payment_received">Payment Received (Customer)</SelectItem>
+                  <SelectItem value="payment_rejected">Payment Rejected (Customer)</SelectItem>
                   <SelectItem value="payment_admin">Payment Received (Admin)</SelectItem>
                   <SelectItem value="new_booking_admin">New Booking Alert</SelectItem>
                   <SelectItem value="cancellation_notice">Cancellation Notice</SelectItem>

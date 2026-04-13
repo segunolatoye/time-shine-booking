@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Smartphone, Building, Upload, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import PublicFooter from "@/components/PublicFooter";
 
 const PayBalance = () => {
   const { token } = useParams();
@@ -131,8 +132,8 @@ const PayBalance = () => {
   const zelleDetails = settings.zelle_details;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-12">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="max-w-2xl mx-auto px-4 py-12 flex-1 w-full">
         <button onClick={() => navigate(`/booking/${token}`)} className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors">
           <ArrowLeft className="w-4 h-4" /> Back to Booking
         </button>
@@ -187,6 +188,7 @@ const PayBalance = () => {
           </div>
         )}
       </div>
+      <PublicFooter />
     </div>
   );
 };

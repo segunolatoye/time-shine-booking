@@ -14,6 +14,7 @@ export interface EmailTemplate {
 export interface EmailTemplates {
   booking_confirmation: EmailTemplate;
   payment_received: EmailTemplate;
+  payment_rejected: EmailTemplate;
   payment_admin: EmailTemplate;
   new_booking_admin: EmailTemplate;
   cancellation_notice: EmailTemplate;
@@ -31,6 +32,11 @@ export const DEFAULT_TEMPLATES: EmailTemplates = {
   payment_received: {
     subject: "Payment Received",
     body: "<p>Hi {{customer_name}},</p>\n<p>We have successfully received your payment of <strong>{{amount}}</strong> for your upcoming appointment on {{booking_date}}.</p>\n<p>View your booking details here:<br/><a href=\"{{base_url}}/booking/{{token}}\">{{base_url}}/booking/{{token}}</a></p>\n<p>Thank you,<br/>{{salon_name}}</p>",
+    enabled: true,
+  },
+  payment_rejected: {
+    subject: "Payment Rejected: Action Required",
+    body: "<p>Hi {{customer_name}},</p>\n<p>Unfortunately, your payment of <strong>{{amount}}</strong> for your upcoming appointment on {{booking_date}} could not be verified.</p>\n<p>Please check your booking details and try again or contact support:<br/><a href=\"{{base_url}}/booking/{{token}}\">{{base_url}}/booking/{{token}}</a></p>\n<p>Thank you,<br/>{{salon_name}}</p>",
     enabled: true,
   },
   payment_admin: {
@@ -73,6 +79,7 @@ interface EmailTemplateEditorProps {
 const templateOptions: { value: keyof EmailTemplates; label: string }[] = [
   { value: "booking_confirmation", label: "Booking Confirmed (Customer)" },
   { value: "payment_received", label: "Payment Received (Customer)" },
+  { value: "payment_rejected", label: "Payment Rejected (Customer)" },
   { value: "payment_admin", label: "Payment Received (Admin)" },
   { value: "new_booking_admin", label: "New Booking Alert (Admin)" },
   { value: "cancellation_notice", label: "Cancellation Notice (Admin)" },

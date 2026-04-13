@@ -24,6 +24,7 @@ import {
   Settings,
   LogOut,
   Clock,
+  BarChart3,
   Menu,
 } from "lucide-react";
 
@@ -34,6 +35,7 @@ const navItems = [
   { to: "/admin/staff", icon: Users, label: "Staff" },
   { to: "/admin/availability", icon: Clock, label: "Availability" },
   { to: "/admin/payments", icon: CreditCard, label: "Payments" },
+  { to: "/admin/reports", icon: BarChart3, label: "Reports" },
   { to: "/admin/settings", icon: Settings, label: "Settings" },
 ];
 
