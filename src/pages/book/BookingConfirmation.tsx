@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Clock, User, CheckCircle, AlertCircle, XCircle } from "lucide-react";
+import { Calendar, Clock, User, CheckCircle, AlertCircle, XCircle, CreditCard } from "lucide-react";
 import { format, parse } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,7 +20,9 @@ const statusConfig: Record<string, { label: string; color: string; icon: any }> 
 const BookingConfirmation = () => {
   const { token } = useParams();
   const [booking, setBooking] = useState<any>(null);
+  const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [contactEmail, setContactEmail] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -36,6 +38,21 @@ const BookingConfirmation = () => {
       }
 
       setBooking(data[0]);
+      
+      // Fetch associated payments to calculate remaining balance
+      const { data: payments } = await supabase
+        .from("payments")
+        .select("amount, service_total")
+        .eq("booking_id", data[0].id);
+      if (payments && payments.length > 0) {
+        const totalService = Number(payments[0].service_total || 0);
+        const totalPaid = payments.reduce((sum, p) => sum + Number(p.amount), 0);
+        setBalance(Math.max(0, totalService - totalPaid));
+      }
+
+      const { data: settingsData } = await supabase.from("settings").select("value").eq("key", "email_config").maybeSingle();
+      if (settingsData?.value?.admin_email) setContactEmail(settingsData.value.admin_email);
+
       setLoading(false);
     };
     fetchBooking();
@@ -139,6 +156,21 @@ const BookingConfirmation = () => {
               </div>
             )}
 
+            {balance > 0 && !["cancelled", "completed", "no_show"].includes(booking.status) && (
+              <div className="flex items-center justify-between pt-4 border-t mt-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Remaining Balance</p>
+                  <p className="font-bold text-lg">${balance.toFixed(2)}</p>
+                </div>
+                <Button
+                  onClick={() => navigate(`/book/pay-balance/${token}`)}
+                  className="rounded-full gap-2"
+                >
+                  <CreditCard className="w-4 h-4" /> Pay Balance
+                </Button>
+              </div>
+            )}
+
             {booking.status === "pending_verification" && (
               <div className="bg-secondary/50 rounded-lg p-4 text-sm text-muted-foreground">
                 Your payment is being verified. You'll receive a confirmation once approved.
@@ -158,6 +190,15 @@ const BookingConfirmation = () => {
             )}
           </CardContent>
         </Card>
+
+        {contactEmail && (
+          <div className="mt-8 bg-secondary/30 p-4 rounded-lg border border-border text-center">
+            <p className="text-sm text-muted-foreground mb-2">Need to make changes to your booking?</p>
+            <a href={`mailto:${contactEmail}`} className="text-sm font-medium text-primary hover:underline">
+              Contact Support
+            </a>
+          </div>
+        )}
 
         <div className="text-center mt-8">
           <Button variant="ghost" onClick={() => navigate("/")} className="text-muted-foreground">

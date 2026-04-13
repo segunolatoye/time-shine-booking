@@ -1,9 +1,12 @@
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArrowLeft, Calendar, Clock, User, DollarSign } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -22,15 +25,82 @@ const CustomerDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as any;
+  const [terms, setTerms] = React.useState<string | null>(null);
+  const [accepted, setAccepted] = React.useState(false);
+  const [termsError, setTermsError] = React.useState(false);
+  const [showDuration, setShowDuration] = React.useState(true);
+  const [enablePayments, setEnablePayments] = React.useState(true);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [contactEmail, setContactEmail] = React.useState<string | null>(null);
+  const { toast } = useToast();
+  
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
   React.useEffect(() => {
     if (!state?.serviceId) navigate("/");
+
+    const fetchSettings = async () => {
+      const { data } = await supabase.from("settings").select("key, value").in("key", ["terms_and_conditions", "show_service_duration", "enable_payments", "email_config"]);
+      if (data) {
+        const termsData = data.find(d => d.key === "terms_and_conditions");
+        if (termsData?.value?.text) setTerms(termsData.value.text);
+        
+        const durationData = data.find(d => d.key === "show_service_duration");
+        if (durationData?.value !== undefined) {
+          setShowDuration(durationData.value.enabled !== false);
+        }
+        
+        const paymentsData = data.find(d => d.key === "enable_payments");
+        if (paymentsData?.value !== undefined) {
+          setEnablePayments(paymentsData.value.enabled !== false);
+        }
+        
+        const emailData = data.find(d => d.key === "email_config");
+        if (emailData?.value?.admin_email) {
+          setContactEmail(emailData.value.admin_email);
+        }
+      }
+    };
+    fetchSettings();
   }, [state, navigate]);
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
+    if (terms && !accepted) {
+      setTermsError(true);
+      return;
+    }
+    
+    if (!enablePayments) {
+      setSubmitting(true);
+      try {
+        const bookingId = crypto.randomUUID();
+        const { error } = await supabase.from("bookings").insert({
+          id: bookingId,
+          service_id: state.serviceId,
+          staff_id: state.staffId || null,
+          customer_name: data.name,
+          customer_email: data.email,
+          customer_phone: data.phone || null,
+          booking_date: state.date,
+          start_time: state.startTime,
+          end_time: state.endTime,
+          status: "confirmed" as any,
+        });
+
+        if (error) throw error;
+
+        const { data: booking } = await supabase.from("bookings").select("access_token").eq("id", bookingId).single();
+        navigate(`/booking/${booking?.access_token}`);
+      } catch (error: any) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     navigate("/book/payment", {
       state: {
         ...state,
@@ -79,39 +149,77 @@ const CustomerDetails = () => {
                 <Label htmlFor="phone">Phone (optional)</Label>
                 <Input id="phone" {...register("phone")} className="mt-1" placeholder="+1 (555) 123-4567" />
               </div>
-              <Button type="submit" className="w-full rounded-full" size="lg">
-                Continue to Payment
+              
+              {terms && (
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <div>
+                    <Label>Terms & Conditions</Label>
+                    <div className="mt-2 bg-secondary/30 p-4 rounded-md text-sm text-muted-foreground whitespace-pre-wrap h-32 overflow-y-auto border border-border">
+                      {terms}
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="terms"
+                      checked={accepted}
+                      onCheckedChange={(checked) => {
+                        setAccepted(checked as boolean);
+                        if (checked) setTermsError(false);
+                      }}
+                      className="mt-1"
+                    />
+                    <div className="space-y-1.5">
+                      <Label htmlFor="terms" className="text-sm font-medium leading-none cursor-pointer">I agree to the Terms and Conditions *</Label>
+                      {termsError && <p className="text-sm text-destructive">You must accept the terms and conditions to proceed.</p>}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <Button type="submit" className="w-full rounded-full" size="lg" disabled={submitting}>
+                {submitting ? "Confirming..." : (enablePayments ? "Continue to Payment" : "Confirm Booking")}
               </Button>
             </form>
           </div>
 
-          <Card className="h-fit">
-            <CardHeader>
-              <CardTitle className="text-lg font-serif">Booking Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Sparkle className="w-4 h-4" />
-                <span>{state?.serviceName}</span>
+          <div className="space-y-6">
+            <Card className="h-fit">
+              <CardHeader>
+                <CardTitle className="text-lg font-serif">Booking Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Sparkle className="w-4 h-4" />
+                  <span>{state?.serviceName}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <User className="w-4 h-4" />
+                  <span>{state?.staffName}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="w-4 h-4" />
+                  <span>{displayDate}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="w-4 h-4" />
+                  <span>{displayTime}{showDuration && state?.serviceDuration ? ` · ${state.serviceDuration} min` : ""}</span>
+                </div>
+                <div className="border-t pt-3 flex items-center justify-between font-semibold text-foreground">
+                  <span>Total</span>
+                  <span>${state?.servicePrice?.toFixed(2)}</span>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {contactEmail && (
+              <div className="bg-secondary/30 p-4 rounded-lg border border-border text-center">
+                <p className="text-sm text-muted-foreground mb-2">Need help with your booking?</p>
+                <a href={`mailto:${contactEmail}`} className="text-sm font-medium text-primary hover:underline">
+                  Contact Support
+                </a>
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <User className="w-4 h-4" />
-                <span>{state?.staffName}</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="w-4 h-4" />
-                <span>{displayDate}</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="w-4 h-4" />
-                <span>{displayTime} · {state?.serviceDuration} min</span>
-              </div>
-              <div className="border-t pt-3 flex items-center justify-between font-semibold text-foreground">
-                <span>Total</span>
-                <span>${state?.servicePrice?.toFixed(2)}</span>
-              </div>
-            </CardContent>
-          </Card>
+            )}
+          </div>
         </div>
       </div>
     </div>

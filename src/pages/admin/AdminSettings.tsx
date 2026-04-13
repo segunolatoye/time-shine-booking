@@ -3,6 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Globe, Check, Loader2, Mail } from "lucide-react";
@@ -32,12 +36,24 @@ const AdminSettings = () => {
   const [zelle, setZelle] = useState({ email: "", phone: "", note: "" });
   const [deposit, setDeposit] = useState({ type: "none", value: 0 });
   const [buffer, setBuffer] = useState({ minutes: 0 });
-  const [salonName, setSalonName] = useState("Luxe Salon");
+  const [salonName, setSalonName] = useState("Hair by Rhuqqui");
+  const [baseUrl, setBaseUrl] = useState("");
+  const [showDuration, setShowDuration] = useState(true);
+  const [enableStaff, setEnableStaff] = useState(true);
+  const [terms, setTerms] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [enablePayments, setEnablePayments] = useState(true);
   const [timezone, setTimezone] = useState("America/New_York");
-  const [emailConfig, setEmailConfig] = useState({ from_name: "", from_email: "", admin_email: "" });
+  const [emailConfig, setEmailConfig] = useState({ from_name: "", from_email: "", admin_email: "", resend_api_key: "" });
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplates>(DEFAULT_TEMPLATES);
   const [saveStatuses, setSaveStatuses] = useState<Record<string, SaveStatus>>({});
   const [loaded, setLoaded] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState("booking_confirmation");
   const { toast } = useToast();
   const timers = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -50,9 +66,18 @@ const AdminSettings = () => {
         if (s.key === "zelle_details") setZelle(v);
         if (s.key === "deposit_rules") setDeposit(v);
         if (s.key === "buffer_time") setBuffer(v);
-        if (s.key === "salon_name") setSalonName(v.name || "Luxe Salon");
+        if (s.key === "salon_name") setSalonName(v.name || "Hair by Rhuqqui");
+        if (s.key === "base_url") setBaseUrl(v.url || "");
+        if (s.key === "show_service_duration") setShowDuration(v.enabled !== false);
+        if (s.key === "enable_staff_selection") setEnableStaff(v.enabled !== false);
+        if (s.key === "terms_and_conditions") setTerms(v.text || "");
+        if (s.key === "contact_phone") setPhone(v.phone || "");
+        if (s.key === "salon_address") setAddress(v.address || "");
+        if (s.key === "instagram_url") setInstagram(v.url || "");
+        if (s.key === "facebook_url") setFacebook(v.url || "");
+        if (s.key === "enable_payments") setEnablePayments(v.enabled !== false);
         if (s.key === "timezone") setTimezone(v.timezone || "America/New_York");
-        if (s.key === "email_config") setEmailConfig(v);
+        if (s.key === "email_config") setEmailConfig({ from_name: "", from_email: "", admin_email: "", resend_api_key: "", ...v });
         if (s.key === "email_templates") setEmailTemplates({ ...DEFAULT_TEMPLATES, ...v });
       });
       setLoaded(true);
@@ -79,6 +104,15 @@ const AdminSettings = () => {
   }, [loaded, saveSetting]);
 
   useEffect(() => { debouncedSave("salon_name", { name: salonName }); }, [salonName]);
+  useEffect(() => { debouncedSave("base_url", { url: baseUrl }); }, [baseUrl]);
+  useEffect(() => { debouncedSave("show_service_duration", { enabled: showDuration }); }, [showDuration]);
+  useEffect(() => { debouncedSave("enable_staff_selection", { enabled: enableStaff }); }, [enableStaff]);
+  useEffect(() => { debouncedSave("terms_and_conditions", { text: terms }); }, [terms]);
+  useEffect(() => { debouncedSave("contact_phone", { phone }); }, [phone]);
+  useEffect(() => { debouncedSave("salon_address", { address }); }, [address]);
+  useEffect(() => { debouncedSave("instagram_url", { url: instagram }); }, [instagram]);
+  useEffect(() => { debouncedSave("facebook_url", { url: facebook }); }, [facebook]);
+  useEffect(() => { debouncedSave("enable_payments", { enabled: enablePayments }); }, [enablePayments]);
   useEffect(() => { debouncedSave("timezone", { timezone }); }, [timezone]);
   useEffect(() => { debouncedSave("cash_app_details", cashApp); }, [cashApp]);
   useEffect(() => { debouncedSave("zelle_details", zelle); }, [zelle]);
@@ -86,6 +120,61 @@ const AdminSettings = () => {
   useEffect(() => { debouncedSave("buffer_time", buffer); }, [buffer]);
   useEffect(() => { debouncedSave("email_config", emailConfig); }, [emailConfig]);
   useEffect(() => { debouncedSave("email_templates", emailTemplates); }, [emailTemplates]);
+
+  const handleTestEmail = async () => {
+    if (!emailConfig.resend_api_key || !emailConfig.from_email || !emailConfig.admin_email) {
+      toast({ title: "Missing configuration", description: "Please fill in From Email, Admin Email, and API Key to test.", variant: "destructive" });
+      return;
+    }
+    setTestingEmail(true);
+    try {
+      const { error } = await supabase.functions.invoke("send-email", {
+        body: {
+          to: emailConfig.admin_email,
+          subject: "Test Email from " + salonName,
+          html: "<p>Your email configuration is working perfectly!</p>",
+          config: emailConfig
+        }
+      });
+      if (error) throw error;
+      toast({ title: "Test email sent!", description: "Check the admin inbox." });
+    } catch (error: any) {
+      toast({ title: "Failed to send test email", description: error.message || "Make sure you have deployed the 'send-email' edge function.", variant: "destructive" });
+    } finally {
+      setTestingEmail(false);
+    }
+  };
+
+  const getPreviewHtml = (templateKey: string) => {
+    const template = (emailTemplates as any)[templateKey];
+    if (!template) return "";
+    let html = template.body || "";
+    html = html.replace(/{{customer_name}}/g, "Jane Doe")
+               .replace(/{{service_name}}/g, "Signature Haircut")
+               .replace(/{{booking_date}}/g, "October 25, 2024")
+               .replace(/{{booking_time}}/g, "2:00 PM")
+               .replace(/{{amount}}/g, "$50.00")
+               .replace(/{{salon_name}}/g, salonName || "Our Salon")
+               .replace(/{{token}}/g, "abc-123-xyz")
+               .replace(/{{base_url}}/g, baseUrl ? baseUrl.replace(/\/$/, '') : "https://your-website.com");
+               
+    const sName = salonName || "Our Salon";
+    return `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f9fafb; padding: 40px 20px; color: #3f3f46; line-height: 1.6; border-radius: 8px;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e4e4e7;">
+          <div style="background-color: #18181b; color: #ffffff; padding: 24px; text-align: center; font-size: 20px; font-weight: 600; letter-spacing: 0.5px;">${sName}</div>
+          <div style="padding: 32px; font-size: 15px;">${html}</div>
+          <div style="padding: 20px; text-align: center; font-size: 12px; color: #a1a1aa; border-top: 1px solid #e4e4e7; background-color: #fafafa;">&copy; ${new Date().getFullYear()} ${sName}. All rights reserved.</div>
+        </div>
+      </div>
+    `;
+  };
+
+  useEffect(() => {
+    return () => {
+      Object.values(timers.current).forEach(clearTimeout);
+    };
+  }, []);
 
   return (
     <div className="space-y-6 md:space-y-8">
@@ -96,13 +185,48 @@ const AdminSettings = () => {
           <CardHeader className="px-4 md:px-6">
             <div className="flex items-center justify-between">
               <CardTitle className="font-serif text-base md:text-lg">Salon Info</CardTitle>
-              <SaveIndicator status={saveStatuses["salon_name"] || "idle"} />
+              <SaveIndicator status={saveStatuses["salon_name"] || saveStatuses["base_url"] || saveStatuses["show_service_duration"] || saveStatuses["enable_staff_selection"] || saveStatuses["contact_phone"] || saveStatuses["salon_address"] || saveStatuses["instagram_url"] || saveStatuses["facebook_url"] || "idle"} />
             </div>
           </CardHeader>
           <CardContent className="px-4 md:px-6 space-y-3">
             <div>
               <Label>Salon Name</Label>
               <Input value={salonName} onChange={(e) => setSalonName(e.target.value)} className="mt-1" />
+            </div>
+            <div>
+              <Label>Website Base URL</Label>
+              <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className="mt-1" placeholder="https://example.com" />
+              <p className="text-xs text-muted-foreground mt-1.5">Used for generating links in emails (e.g., booking status).</p>
+            </div>
+            <div>
+              <Label>Contact Phone</Label>
+              <Input value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-1" placeholder="(555) 123-4567" />
+            </div>
+            <div>
+              <Label>Salon Address</Label>
+              <Textarea value={address} onChange={(e) => setAddress(e.target.value)} className="mt-1 min-h-[60px]" placeholder="123 Main St, City, ST 12345" />
+            </div>
+            <div>
+              <Label>Instagram URL</Label>
+              <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} className="mt-1" placeholder="https://instagram.com/..." />
+            </div>
+            <div>
+              <Label>Facebook URL</Label>
+              <Input value={facebook} onChange={(e) => setFacebook(e.target.value)} className="mt-1" placeholder="https://facebook.com/..." />
+            </div>
+            <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
+              <div className="space-y-0.5">
+                <Label>Show Service Duration</Label>
+                <p className="text-xs text-muted-foreground">Display estimated service time on the frontend.</p>
+              </div>
+              <Switch checked={showDuration} onCheckedChange={setShowDuration} />
+            </div>
+            <div className="flex items-center justify-between pt-2 mt-2 border-t border-border">
+              <div className="space-y-0.5">
+                <Label>Enable Staff Selection</Label>
+                <p className="text-xs text-muted-foreground">Allow customers to pick a specific stylist.</p>
+              </div>
+              <Switch checked={enableStaff} onCheckedChange={setEnableStaff} />
             </div>
           </CardContent>
         </Card>
@@ -166,27 +290,38 @@ const AdminSettings = () => {
         <Card>
           <CardHeader className="px-4 md:px-6">
             <div className="flex items-center justify-between">
-              <CardTitle className="font-serif text-base md:text-lg">Deposit Rules</CardTitle>
-              <SaveIndicator status={saveStatuses["deposit_rules"] || "idle"} />
+              <CardTitle className="font-serif text-base md:text-lg">Payment & Deposit Rules</CardTitle>
+              <SaveIndicator status={saveStatuses["deposit_rules"] || saveStatuses["enable_payments"] || "idle"} />
             </div>
           </CardHeader>
           <CardContent className="px-4 md:px-6 space-y-3">
-            <div>
-              <Label>Deposit Type</Label>
-              <Select value={deposit.type} onValueChange={(v) => setDeposit({ ...deposit, type: v })}>
-                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Full Payment</SelectItem>
-                  <SelectItem value="percentage">Percentage</SelectItem>
-                  <SelectItem value="fixed">Fixed Amount</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {deposit.type !== "none" && (
-              <div>
-                <Label>{deposit.type === "percentage" ? "Percentage (%)" : "Amount ($)"}</Label>
-                <Input type="number" value={deposit.value} onChange={(e) => setDeposit({ ...deposit, value: parseFloat(e.target.value) || 0 })} className="mt-1" />
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="space-y-0.5">
+                <Label>Enable Payments</Label>
+                <p className="text-xs text-muted-foreground">Require customers to submit payment details to book.</p>
               </div>
+              <Switch checked={enablePayments} onCheckedChange={setEnablePayments} />
+            </div>
+            {enablePayments && (
+              <>
+                <div className="pt-1">
+                  <Label>Deposit Type</Label>
+                  <Select value={deposit.type} onValueChange={(v) => setDeposit({ ...deposit, type: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Full Payment</SelectItem>
+                      <SelectItem value="percentage">Percentage</SelectItem>
+                      <SelectItem value="fixed">Fixed Amount</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {deposit.type !== "none" && (
+                  <div>
+                    <Label>{deposit.type === "percentage" ? "Percentage (%)" : "Amount ($)"}</Label>
+                    <Input type="number" value={deposit.value} onChange={(e) => setDeposit({ ...deposit, value: parseFloat(e.target.value) || 0 })} className="mt-1" />
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
         </Card>
@@ -207,6 +342,22 @@ const AdminSettings = () => {
         </Card>
       </div>
 
+      <Card>
+        <CardHeader className="px-4 md:px-6">
+          <div className="flex items-center justify-between">
+            <CardTitle className="font-serif text-base md:text-lg">Terms & Conditions</CardTitle>
+            <SaveIndicator status={saveStatuses["terms_and_conditions"] || "idle"} />
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 md:px-6 space-y-3">
+          <div>
+            <Label>Booking Terms & Policy</Label>
+            <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} className="mt-1 min-h-[100px]" placeholder="e.g. All deposits are non-refundable. Please arrive 10 minutes early..." />
+            <p className="text-xs text-muted-foreground mt-1.5">Displayed to customers during the details step of the booking process.</p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Email Configuration */}
       <Card>
         <CardHeader className="px-4 md:px-6">
@@ -219,13 +370,27 @@ const AdminSettings = () => {
         </CardHeader>
         <CardContent className="px-4 md:px-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div><Label>From Name</Label><Input value={emailConfig.from_name} onChange={(e) => setEmailConfig({ ...emailConfig, from_name: e.target.value })} className="mt-1" placeholder="Luxe Salon" /></div>
+            <div><Label>From Name</Label><Input value={emailConfig.from_name} onChange={(e) => setEmailConfig({ ...emailConfig, from_name: e.target.value })} className="mt-1" placeholder="Hair by Rhuqqui" /></div>
             <div><Label>From Email</Label><Input type="email" value={emailConfig.from_email} onChange={(e) => setEmailConfig({ ...emailConfig, from_email: e.target.value })} className="mt-1" placeholder="noreply@yoursalon.com" /></div>
           </div>
           <div>
             <Label>Admin Notification Email</Label>
             <Input type="email" value={emailConfig.admin_email} onChange={(e) => setEmailConfig({ ...emailConfig, admin_email: e.target.value })} className="mt-1" placeholder="admin@yoursalon.com" />
             <p className="text-xs text-muted-foreground mt-1">Receives new booking alerts and cancellation notices.</p>
+          </div>
+          <div>
+            <Label>Resend API Key</Label>
+            <Input type="password" value={emailConfig.resend_api_key || ""} onChange={(e) => setEmailConfig({ ...emailConfig, resend_api_key: e.target.value })} className="mt-1" placeholder="re_..." />
+            <p className="text-xs text-muted-foreground mt-1">Used to send emails via Resend. Get this from your Resend dashboard.</p>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" onClick={handleTestEmail} disabled={testingEmail}>
+              {testingEmail ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Mail className="w-4 h-4 mr-2" />}
+              Test Email Config
+            </Button>
+            <Button variant="outline" onClick={() => setPreviewOpen(true)}>
+              Preview Templates
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -242,6 +407,37 @@ const AdminSettings = () => {
           <EmailTemplateEditor templates={emailTemplates} onChange={setEmailTemplates} />
         </CardContent>
       </Card>
+
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Template Preview</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+            <div>
+              <Label>Select Template to Preview</Label>
+              <Select value={previewTemplate} onValueChange={setPreviewTemplate}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="booking_confirmation">Booking Confirmed</SelectItem>
+                  <SelectItem value="payment_received">Payment Received (Customer)</SelectItem>
+                  <SelectItem value="payment_admin">Payment Received (Admin)</SelectItem>
+                  <SelectItem value="new_booking_admin">New Booking Alert</SelectItem>
+                  <SelectItem value="cancellation_notice">Cancellation Notice</SelectItem>
+                  <SelectItem value="cancellation_customer">Cancellation Notice (Customer)</SelectItem>
+                  <SelectItem value="reschedule_customer">Booking Rescheduled (Customer)</SelectItem>
+                  <SelectItem value="reschedule_admin">Booking Rescheduled (Admin)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex-1 overflow-auto rounded-md">
+              <div dangerouslySetInnerHTML={{ __html: getPreviewHtml(previewTemplate) }} />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, XCircle, RotateCcw } from "lucide-react";
+import { CheckCircle, XCircle, RotateCcw, Trash2, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { DataTable, Column } from "@/components/admin/DataTable";
 
@@ -19,13 +20,15 @@ const AdminPayments = () => {
   const [refundPayment, setRefundPayment] = useState<any>(null);
   const [refundNotes, setRefundNotes] = useState("");
   const [cancelBookingToo, setCancelBookingToo] = useState(true);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchPayments = async () => {
     setLoading(true);
     const { data } = await supabase
       .from("payments")
-      .select("*, bookings(customer_name, customer_email, booking_date, services(name))")
+      .select("*, bookings(customer_name, customer_email, booking_date, services(name, price))")
       .order("created_at", { ascending: false });
     setPayments(data || []);
     setLoading(false);
@@ -36,11 +39,15 @@ const AdminPayments = () => {
   const filteredPayments = statusFilter === "all" ? payments : payments.filter((p) => p.status === statusFilter);
 
   const verifyPayment = async (payment: any, approved: boolean) => {
-    const newStatus = approved ? "paid_full" : "failed";
+    const total = Number(payment.service_total || payment.bookings?.services?.price || 0);
+    const paid = Number(payment.amount);
+    const balanceRemaining = payment.service_total > 0 ? Number(payment.balance_remaining) : Math.max(0, total - paid);
+    
+    const newStatus = approved ? (balanceRemaining > 0 ? "paid_partial" : "paid_full") : "failed";
     const { error } = await supabase.from("payments").update({
       status: newStatus as any,
       verified_at: new Date().toISOString(),
-      admin_notes: approved ? null : "Rejected by admin",
+      admin_notes: approved ? payment.admin_notes : "Rejected by admin",
     }).eq("id", payment.id);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
     if (approved) {
@@ -66,6 +73,30 @@ const AdminPayments = () => {
     setRefundNotes("");
     setCancelBookingToo(true);
     fetchPayments();
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase.from("payments").delete().eq("id", deleteId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
+    else { toast({ title: "Payment deleted" }); fetchPayments(); }
+    setDeleteId(null);
+  };
+
+  const viewReceipt = async (urlOrPath: string) => {
+    if (!urlOrPath) return;
+    // If it's already a full public URL, just open it
+    if (urlOrPath.startsWith("http")) {
+      setReceiptUrl(urlOrPath);
+      return;
+    }
+    // Otherwise, generate a secure temporary URL from the private bucket
+    const { data, error } = await supabase.storage.from("payment-proofs").createSignedUrl(urlOrPath, 60);
+    if (error) {
+      toast({ title: "Error loading receipt", description: error.message, variant: "destructive" });
+    } else if (data) {
+      setReceiptUrl(data.signedUrl);
+    }
   };
 
   const statusColor = (status: string) => {
@@ -97,7 +128,19 @@ const AdminPayments = () => {
       key: "amount",
       header: "Amount",
       sortable: true,
-      render: (p) => <span className="text-sm font-medium">${Number(p.amount).toFixed(2)}</span>,
+      render: (p) => {
+        const total = Number(p.service_total || p.bookings?.services?.price || 0);
+        const paid = Number(p.amount);
+        const balance = p.service_total > 0 ? Number(p.balance_remaining) : Math.max(0, total - paid);
+        return (
+          <div className="min-w-0">
+            <p className="text-sm font-medium">${paid.toFixed(2)}</p>
+            {balance > 0 && p.status !== "failed" && p.status !== "refunded" && (
+              <p className="text-xs text-muted-foreground whitespace-nowrap">Bal: ${balance.toFixed(2)}</p>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "method",
@@ -159,6 +202,11 @@ const AdminPayments = () => {
         }
         actions={(p) => (
           <div className="flex gap-1">
+            {p.receipt_url && (
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600" title="View Receipt" onClick={() => viewReceipt(p.receipt_url)}>
+                <FileText className="w-4 h-4" />
+              </Button>
+            )}
             {p.status === "pending_verification" && (
               <>
                 <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" title="Approve" onClick={() => verifyPayment(p, true)}>
@@ -174,6 +222,9 @@ const AdminPayments = () => {
                 <RotateCcw className="w-4 h-4" />
               </Button>
             )}
+            <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" title="Delete" onClick={() => setDeleteId(p.id)}>
+              <Trash2 className="w-4 h-4" />
+            </Button>
           </div>
         )}
         emptyMessage="No payments yet."
@@ -199,6 +250,32 @@ const AdminPayments = () => {
                 <Label className="text-sm">Also cancel the associated booking</Label>
               </div>
               <Button className="w-full rounded-full" onClick={confirmRefund}>Confirm Refund</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Payment</AlertDialogTitle>
+            <AlertDialogDescription>Are you sure? This will permanently delete this payment record. This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Payment</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete Payment</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={!!receiptUrl} onOpenChange={(v) => !v && setReceiptUrl(null)}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-3xl h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Payment Receipt</DialogTitle>
+          </DialogHeader>
+          {receiptUrl && (
+            <div className="flex-1 overflow-hidden rounded-md border border-border bg-secondary/10">
+              <iframe src={receiptUrl} className="w-full h-full" title="Payment Receipt" />
             </div>
           )}
         </DialogContent>

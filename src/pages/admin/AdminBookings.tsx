@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format, parse } from "date-fns";
-import { XCircle, CalendarClock } from "lucide-react";
+import { XCircle, CalendarClock, Trash2 } from "lucide-react";
 import { DataTable, Column } from "@/components/admin/DataTable";
 
 const statusOptions = [
@@ -38,6 +38,7 @@ const AdminBookings = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [cancelId, setCancelId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [rescheduleBooking, setRescheduleBooking] = useState<any>(null);
   const [rescheduleForm, setRescheduleForm] = useState({ date: "", time: "" });
   const { toast } = useToast();
@@ -72,6 +73,14 @@ const AdminBookings = () => {
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
     else { toast({ title: "Booking cancelled" }); fetchBookings(); }
     setCancelId(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase.from("bookings").delete().eq("id", deleteId);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); }
+    else { toast({ title: "Booking deleted" }); fetchBookings(); }
+    setDeleteId(null);
   };
 
   const confirmReschedule = async () => {
@@ -192,6 +201,9 @@ const AdminBookings = () => {
                 <XCircle className="w-4 h-4" />
               </Button>
             )}
+            <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" title="Delete" onClick={() => setDeleteId(b.id)}>
+              <Trash2 className="w-4 h-4" />
+            </Button>
           </div>
         )}
         emptyMessage="No bookings found."
@@ -210,6 +222,19 @@ const AdminBookings = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={!!deleteId} onOpenChange={(v) => !v && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Booking</AlertDialogTitle>
+            <AlertDialogDescription>Are you sure? This will permanently delete this booking. This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Booking</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete Booking</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={!!rescheduleBooking} onOpenChange={(v) => !v && setRescheduleBooking(null)}>
         <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
           <DialogHeader>
@@ -220,6 +245,10 @@ const AdminBookings = () => {
               <p className="text-sm text-muted-foreground">
                 {rescheduleBooking.customer_name} — {rescheduleBooking.services?.name}
               </p>
+              <div className="bg-secondary/30 p-3 rounded-md text-xs text-muted-foreground space-y-1 border border-border/50">
+                <p><strong className="text-foreground">Current Date:</strong> {format(parse(rescheduleBooking.booking_date, "yyyy-MM-dd", new Date()), "MMMM d, yyyy")}</p>
+                <p><strong className="text-foreground">Current Time:</strong> {rescheduleBooking.start_time?.substring(0, 5)}</p>
+              </div>
               <div>
                 <Label>New Date</Label>
                 <Input type="date" value={rescheduleForm.date} onChange={(e) => setRescheduleForm({ ...rescheduleForm, date: e.target.value })} className="mt-1" />
