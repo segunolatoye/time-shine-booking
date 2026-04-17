@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,14 @@ import { Pencil, Trash2, KeyRound, Plus } from "lucide-react";
 import { DataTable, Column } from "@/components/admin/DataTable";
 import { format } from "date-fns";
 
+// Create a dedicated admin client using the service_role key
+// WARNING: Only do this if your admin panel is strictly internal and not accessible to the public.
+// Otherwise, move these actions to a secure Supabase Edge Function.
+const supabaseAdmin = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY
+);
+
 const AdminUsers = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,13 +28,14 @@ const AdminUsers = () => {
   const [editUser, setEditUser] = useState<any>(null);
   const [form, setForm] = useState({ email: "", password: "", displayName: "", role: "user" });
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [resetEmail, setResetEmail] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchUsers = async () => {
     setLoading(true);
     // Fetches users from the Supabase Auth system
     // Note: Requires service_role key to be configured in the client
-    const { data, error } = await supabase.auth.admin.listUsers();
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers();
     if (error) {
       toast({ 
         title: "Error fetching users", 
@@ -51,7 +61,7 @@ const AdminUsers = () => {
       };
       if (form.password) updates.password = form.password; // Admin setting a new password directly
 
-      const { error } = await supabase.auth.admin.updateUserById(editUser.id, updates);
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(editUser.id, updates);
       if (error) { 
         toast({ title: "Error", description: error.message, variant: "destructive" }); 
         return; 
@@ -59,7 +69,7 @@ const AdminUsers = () => {
       toast({ title: "User updated successfully" });
     } else {
       if (!form.password) { toast({ title: "Password is required for new users", variant: "destructive" }); return; }
-      const { error } = await supabase.auth.admin.createUser({
+      const { error } = await supabaseAdmin.auth.admin.createUser({
         email: form.email,
         password: form.password,
         user_metadata: { name: form.displayName },
@@ -80,7 +90,7 @@ const AdminUsers = () => {
 
   const confirmDelete = async () => {
     if (!deleteId) return;
-    const { error } = await supabase.auth.admin.deleteUser(deleteId);
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(deleteId);
     if (error) { 
       toast({ title: "Error", description: error.message, variant: "destructive" }); 
       return; 
@@ -90,13 +100,15 @@ const AdminUsers = () => {
     fetchUsers();
   };
 
-  const handleResetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+  const confirmResetPassword = async () => {
+    if (!resetEmail) return;
+    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(resetEmail);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Password reset email sent to " + email });
+      toast({ title: "Password reset email sent to " + resetEmail });
     }
+    setResetEmail(null);
   };
 
   const openCreate = () => {
@@ -178,7 +190,7 @@ const AdminUsers = () => {
         }
         actions={(u) => (
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" title="Send Password Reset" onClick={() => handleResetPassword(u.email)}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" title="Send Password Reset" onClick={() => setResetEmail(u.email)}>
               <KeyRound className="w-4 h-4" />
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit" onClick={() => openEdit(u)}>
@@ -238,6 +250,19 @@ const AdminUsers = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!resetEmail} onOpenChange={(v) => !v && setResetEmail(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send Password Reset</AlertDialogTitle>
+            <AlertDialogDescription>Are you sure you want to send a password reset email to <strong>{resetEmail}</strong>?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmResetPassword}>Send Email</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

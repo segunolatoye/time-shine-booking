@@ -54,7 +54,7 @@ const navItems = [
 ];
 
 function AdminSidebar() {
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
 
@@ -91,7 +91,13 @@ function AdminSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <div className="mt-auto p-3 border-t border-border">
+      <div className="mt-auto p-3 border-t border-border flex flex-col gap-2">
+        {!collapsed && user && (
+          <div className="px-2 py-1.5 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">{user.user_metadata?.name || 'Admin User'}</p>
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+          </div>
+        )}
         <Button
           variant="ghost"
           size={collapsed ? "icon" : "default"}
