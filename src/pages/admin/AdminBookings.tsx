@@ -115,6 +115,7 @@ const AdminBookings = () => {
         <div className="min-w-0">
           <p className="font-medium text-sm truncate">{b.customer_name}</p>
           <p className="text-xs text-muted-foreground truncate">{b.customer_email}</p>
+          {b.customer_phone && <p className="text-xs text-muted-foreground truncate">{b.customer_phone}</p>}
         </div>
       ),
     },
@@ -169,10 +170,11 @@ const AdminBookings = () => {
         data={bookings}
         columns={columns}
         loading={loading}
-        searchPlaceholder="Search by name or email..."
+        searchPlaceholder="Search by name, email, or phone..."
         searchFn={(b, q) =>
           b.customer_name?.toLowerCase().includes(q) ||
           b.customer_email?.toLowerCase().includes(q) ||
+          b.customer_phone?.toLowerCase().includes(q) ||
           b.services?.name?.toLowerCase().includes(q)
         }
         filters={

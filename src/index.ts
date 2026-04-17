@@ -122,6 +122,7 @@ serve(async (req) => {
       return text
         .replace(/{{customer_name}}/g, data.customer_name || "")
         .replace(/{{customer_email}}/g, data.customer_email || "")
+        .replace(/{{customer_phone}}/g, data.customer_phone || "Not provided")
         .replace(/{{service_name}}/g, data.service_name || "a service")
         .replace(/{{booking_date}}/g, data.booking_date || "")
         .replace(/{{booking_time}}/g, data.start_time ? data.start_time.substring(0, 5) : "")
@@ -186,11 +187,11 @@ serve(async (req) => {
 
     // B. Payments (New Payment Submitted or Verified)
     else if (table === 'payments') {
-      const { data: bk } = await supabase.from('bookings').select('customer_name, customer_email, booking_date, start_time, access_token, services(name)').eq('id', record?.booking_id).single();
+      const { data: bk } = await supabase.from('bookings').select('customer_name, customer_email, customer_phone, booking_date, start_time, access_token, services(name)').eq('id', record?.booking_id).single();
       if (bk) {
         const pData = {
           ...record,
-          customer_name: bk.customer_name, customer_email: bk.customer_email,
+          customer_name: bk.customer_name, customer_email: bk.customer_email, customer_phone: bk.customer_phone,
           booking_date: bk.booking_date, start_time: bk.start_time,
           service_name: bk.services?.name || "a service"
         };

@@ -28,7 +28,7 @@ const AdminPayments = () => {
     setLoading(true);
     const { data } = await supabase
       .from("payments")
-      .select("*, bookings(customer_name, customer_email, booking_date, services(name, price))")
+      .select("*, bookings(customer_name, customer_email, customer_phone, booking_date, services(name, price))")
       .order("created_at", { ascending: false });
     setPayments(data || []);
     setLoading(false);
@@ -120,6 +120,8 @@ const AdminPayments = () => {
       render: (p) => (
         <div className="min-w-0">
           <p className="font-medium text-sm truncate">{p.bookings?.customer_name}</p>
+          <p className="text-xs text-muted-foreground truncate">{p.bookings?.customer_email}</p>
+          {p.bookings?.customer_phone && <p className="text-xs text-muted-foreground truncate">{p.bookings?.customer_phone}</p>}
           <p className="text-xs text-muted-foreground truncate">{p.bookings?.services?.name}</p>
         </div>
       ),
@@ -180,11 +182,12 @@ const AdminPayments = () => {
         data={filteredPayments}
         columns={columns}
         loading={loading}
-        searchPlaceholder="Search by customer..."
+        searchPlaceholder="Search by customer, email, or phone..."
         searchFn={(p, q) =>
           p.bookings?.customer_name?.toLowerCase().includes(q) ||
           p.reference?.toLowerCase().includes(q) ||
-          p.bookings?.customer_email?.toLowerCase().includes(q)
+          p.bookings?.customer_email?.toLowerCase().includes(q) ||
+          p.bookings?.customer_phone?.toLowerCase().includes(q)
         }
         filters={
           <Select value={statusFilter} onValueChange={setStatusFilter}>
