@@ -166,6 +166,23 @@ const AdminPayments = () => {
       ),
     },
     {
+      key: "receipt",
+      header: "Receipt",
+      render: (p) => {
+        // Check an expanded list of common field names where the file might be saved
+        let url = p.proof_screenshot_url || p.receipt_url || p.receipt || p.proof_url || p.proof || p.payment_proof || p.metadata?.receipt_url;
+        if (url === "null" || url === "undefined") url = null;
+        
+        return url ? (
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => viewReceipt(url)}>
+            <FileText className="w-3 h-3 mr-1" /> View
+          </Button>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        );
+      },
+    },
+    {
       key: "created_at",
       header: "Date",
       sortable: true,
@@ -205,11 +222,6 @@ const AdminPayments = () => {
         }
         actions={(p) => (
           <div className="flex gap-1">
-            {p.receipt_url && (
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-600" title="View Receipt" onClick={() => viewReceipt(p.receipt_url)}>
-                <FileText className="w-4 h-4" />
-              </Button>
-            )}
             {p.status === "pending_verification" && (
               <>
                 <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" title="Approve" onClick={() => verifyPayment(p, true)}>
@@ -277,8 +289,22 @@ const AdminPayments = () => {
             <DialogTitle className="font-serif">Payment Receipt</DialogTitle>
           </DialogHeader>
           {receiptUrl && (
-            <div className="flex-1 overflow-hidden rounded-md border border-border bg-secondary/10">
-              <iframe src={receiptUrl} className="w-full h-full" title="Payment Receipt" />
+          <div className="flex-1 overflow-hidden rounded-md border border-border bg-secondary/10 flex flex-col relative">
+            <img 
+              src={receiptUrl} 
+              alt="Payment Receipt" 
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+            <iframe src={receiptUrl} className="w-full h-full hidden" title="Payment Receipt" />
+            <div className="absolute bottom-4 right-4 bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-md shadow-sm border border-border">
+              <a href={receiptUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline">
+                Open in New Tab
+              </a>
+            </div>
             </div>
           )}
         </DialogContent>
