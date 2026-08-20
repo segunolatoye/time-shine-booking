@@ -36,6 +36,8 @@ const AdminSettings = () => {
   const [zelle, setZelle] = useState({ email: "", phone: "", note: "" });
   const [deposit, setDeposit] = useState({ type: "none", value: 0 });
   const [buffer, setBuffer] = useState({ minutes: 0 });
+  const [maxBookings, setMaxBookings] = useState({ count: 0 });
+  const [allowedTimes, setAllowedTimes] = useState({ text: "09:00, 12:00" });
   const [salonName, setSalonName] = useState("Hair by Rhuqqui");
   const [baseUrl, setBaseUrl] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
@@ -70,6 +72,8 @@ const AdminSettings = () => {
         if (s.key === "zelle_details") setZelle(v);
         if (s.key === "deposit_rules") setDeposit(v);
         if (s.key === "buffer_time") setBuffer(v);
+        if (s.key === "max_bookings_per_day") setMaxBookings(v);
+        if (s.key === "allowed_booking_times") setAllowedTimes(v || { text: "09:00, 12:00" });
         if (s.key === "salon_name") setSalonName(v.name || "Hair by Rhuqqui");
         if (s.key === "base_url") setBaseUrl(v.url || "");
         if (s.key === "salon_logo") setLogoUrl(v.url || "");
@@ -128,6 +132,8 @@ const AdminSettings = () => {
   useEffect(() => { debouncedSave("zelle_details", zelle); }, [zelle]);
   useEffect(() => { debouncedSave("deposit_rules", deposit); }, [deposit]);
   useEffect(() => { debouncedSave("buffer_time", buffer); }, [buffer]);
+  useEffect(() => { debouncedSave("max_bookings_per_day", maxBookings); }, [maxBookings]);
+  useEffect(() => { debouncedSave("allowed_booking_times", allowedTimes); }, [allowedTimes]);
   useEffect(() => { debouncedSave("email_config", emailConfig); }, [emailConfig]);
   useEffect(() => { debouncedSave("email_templates", emailTemplates); }, [emailTemplates]);
 
@@ -384,14 +390,24 @@ const AdminSettings = () => {
         <Card>
           <CardHeader className="px-4 md:px-6">
             <div className="flex items-center justify-between">
-              <CardTitle className="font-serif text-base md:text-lg">Buffer Time</CardTitle>
-              <SaveIndicator status={saveStatuses["buffer_time"] || "idle"} />
+              <CardTitle className="font-serif text-base md:text-lg">Booking Limits</CardTitle>
+              <SaveIndicator status={saveStatuses["buffer_time"] || saveStatuses["max_bookings_per_day"] || "idle"} />
             </div>
           </CardHeader>
           <CardContent className="px-4 md:px-6 space-y-3">
             <div>
               <Label>Minutes between bookings</Label>
               <Input type="number" value={buffer.minutes} onChange={(e) => setBuffer({ minutes: parseInt(e.target.value) || 0 })} className="mt-1" />
+            </div>
+            <div className="pt-2">
+              <Label>Max Bookings per Day</Label>
+              <Input type="number" value={maxBookings.count} onChange={(e) => setMaxBookings({ count: parseInt(e.target.value) || 0 })} className="mt-1" placeholder="0 for unlimited" />
+              <p className="text-xs text-muted-foreground mt-1.5">Set to 0 for unlimited bookings. If a value is set, no more bookings can be made on a single day once the limit is reached.</p>
+            </div>
+            <div className="pt-2">
+              <Label>Allowed Booking Times (Optional)</Label>
+              <Input value={allowedTimes.text} onChange={(e) => setAllowedTimes({ text: e.target.value })} className="mt-1" placeholder="e.g. 09:00, 12:00" />
+              <p className="text-xs text-muted-foreground mt-1.5">Comma-separated list of exact times in 24-hour format (e.g. 09:00, 14:30) allowed for booking. Leave empty to allow any time based on working hours.</p>
             </div>
           </CardContent>
         </Card>

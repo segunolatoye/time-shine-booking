@@ -95,7 +95,7 @@ const Index = () => {
             </h1>
           </div>
           <p className="text-sm text-muted-foreground hidden sm:block">
-            Select a service to book your appointment
+            Select a service to book your appointment ONLY.
           </p>
         </div>
       </header>

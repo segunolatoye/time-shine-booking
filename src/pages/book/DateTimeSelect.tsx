@@ -144,15 +144,26 @@ const DateTimeSelect = () => {
 
     const { data: bookings } = await bookingQuery;
 
-    // Get buffer time
-    const { data: bufferSetting } = await supabase
-      .from("settings")
-      .select("value")
-      .eq("key", "buffer_time")
-      .maybeSingle();
+    // Get buffer time & max bookings & allowed times
+    const [bufferRes, maxBookingsRes, allowedTimesRes] = await Promise.all([
+      supabase.from("settings").select("value").eq("key", "buffer_time").maybeSingle(),
+      supabase.from("settings").select("value").eq("key", "max_bookings_per_day").maybeSingle(),
+      supabase.from("settings").select("value").eq("key", "allowed_booking_times").maybeSingle()
+    ]);
 
-    const bufferMinutes = (bufferSetting?.value as any)?.minutes || 0;
+    const bufferMinutes = (bufferRes.data?.value as any)?.minutes || 0;
+    const maxBookings = (maxBookingsRes.data?.value as any)?.count || 0;
+    const allowedTimesSetting = allowedTimesRes.data ? (allowedTimesRes.data.value as any) : { text: "09:00, 12:00" };
+    const allowedTimesStr = allowedTimesSetting.text || "";
+    const allowedTimesList = allowedTimesStr.split(",").map((t: string) => t.trim()).filter(Boolean);
     const duration = state.serviceDuration || 60;
+
+    // Check max bookings
+    if (maxBookings > 0 && (bookings || []).length >= maxBookings) {
+      setSlots([]);
+      setLoadingSlots(false);
+      return;
+    }
 
     // Generate slots
     const startOfDayTime = parse(workingHour.start_time, "HH:mm:ss", date);
@@ -196,7 +207,9 @@ const DateTimeSelect = () => {
       });
 
       if (!duringBreak && !overlaps && !partialClosed) {
-        generatedSlots.push(slotTimeStr);
+        if (allowedTimesList.length === 0 || allowedTimesList.includes(slotTimeStr)) {
+          generatedSlots.push(slotTimeStr);
+        }
       }
 
       cursor = addMinutes(cursor, 15);
