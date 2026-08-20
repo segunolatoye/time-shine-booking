@@ -94,7 +94,7 @@ const Index = () => {
               <h1 className="text-2xl font-serif font-bold text-foreground tracking-tight">
                 {salonName}
               </h1>
-              <span className="text-[10px] sm:text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full whitespace-nowrap tracking-wider animate-pulse">
+              <span className="text-xs sm:text-sm font-bold bg-destructive text-destructive-foreground px-3 py-1 rounded-full whitespace-nowrap tracking-widest animate-pulse shadow-sm">
                 APPOINTMENT ONLY
               </span>
             </div>
