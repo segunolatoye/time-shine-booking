@@ -95,7 +95,7 @@ const Index = () => {
                 {salonName}
               </h1>
               <span className="text-xs sm:text-sm font-bold bg-destructive text-destructive-foreground px-3 py-1 rounded-full whitespace-nowrap tracking-widest animate-pulse shadow-sm">
-                APPOINTMENT ONLY
+                BY APPOINTMENT ONLY
               </span>
             </div>
           </div>
