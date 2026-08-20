@@ -90,12 +90,17 @@ const Index = () => {
             ) : (
               <Scissors className="w-6 h-6 text-primary" />
             )}
-            <h1 className="text-2xl font-serif font-bold text-foreground tracking-tight">
-              {salonName}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-serif font-bold text-foreground tracking-tight">
+                {salonName}
+              </h1>
+              <span className="text-[10px] sm:text-xs font-semibold bg-primary/10 text-primary px-2 py-0.5 rounded-full whitespace-nowrap tracking-wider animate-pulse">
+                APPOINTMENT ONLY
+              </span>
+            </div>
           </div>
           <p className="text-sm text-muted-foreground hidden sm:block">
-            Select a service to book your appointment ONLY.
+            Select a service to book your appointment
           </p>
         </div>
       </header>
